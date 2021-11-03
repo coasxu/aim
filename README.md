@@ -179,6 +179,11 @@ _See documentation [here](#xgboost)._
 $ aim up
 ```
 
+保存tensorboard.
+```shell
+$ aim up --tf_logs path/to/logs
+```
+
 # Roadmap
 
 ## Detailed Sprints
