@@ -1,43 +1,42 @@
 import * as React from 'react';
-import { Link as RouteLink } from 'react-router-dom';
 import { merge } from 'lodash-es';
 
-import { Link } from '@material-ui/core';
-
 import { Badge } from 'components/kit';
+import RunNameColumn from 'components/Table/RunNameColumn';
+import GroupedColumnHeader from 'components/Table/GroupedColumnHeader';
 
 import COLORS from 'config/colors/colors';
-import { PathEnum } from 'config/enums/routesEnum';
+import { TABLE_DEFAULT_CONFIG } from 'config/table/tableConfigs';
 
 import { ITableColumn } from 'types/pages/metrics/components/TableColumns/TableColumns';
 
 import { isSystemMetric } from 'utils/isSystemMetric';
 import { formatSystemMetricName } from 'utils/formatSystemMetricName';
+import alphabeticalSortComparator from 'utils/alphabeticalSortComparator';
 
 function getRunsTableColumns(
   metricsColumns: any,
   runColumns: string[] = [],
-  groupFields: { [key: string]: string } | null,
   order: { left: string[]; middle: string[]; right: string[] },
   hiddenColumns: string[],
 ): ITableColumn[] {
   let columns: ITableColumn[] = [
     {
-      key: 'experiment',
-      content: <span>Experiment</span>,
-      topHeader: 'Runs',
-      pin: order?.left?.includes('experiment')
+      key: 'hash',
+      content: <span>Hash</span>,
+      topHeader: 'Run',
+      pin: order?.left?.includes('hash')
         ? 'left'
-        : order?.middle?.includes('experiment')
+        : order?.middle?.includes('hash')
         ? null
-        : order?.right?.includes('experiment')
+        : order?.right?.includes('hash')
         ? 'right'
-        : 'left',
+        : null,
     },
     {
       key: 'run',
-      content: <span>Run</span>,
-      topHeader: 'Runs',
+      content: <span>Name</span>,
+      topHeader: 'Run',
       pin: order?.left?.includes('run')
         ? 'left'
         : order?.middle?.includes('run')
@@ -46,36 +45,95 @@ function getRunsTableColumns(
         ? 'right'
         : 'left',
     },
+    {
+      key: 'experiment',
+      content: <span>Experiment</span>,
+      topHeader: 'Run',
+      pin: order?.left?.includes('experiment')
+        ? 'left'
+        : order?.middle?.includes('experiment')
+        ? null
+        : order?.right?.includes('experiment')
+        ? 'right'
+        : null,
+    },
+    {
+      key: 'description',
+      content: <span>Description</span>,
+      topHeader: 'Run',
+      pin: order?.left?.includes('description')
+        ? 'left'
+        : order?.middle?.includes('description')
+        ? null
+        : order?.right?.includes('description')
+        ? 'right'
+        : null,
+    },
+    {
+      key: 'date',
+      content: <span>Date</span>,
+      topHeader: 'Run',
+      pin: order?.left?.includes('date')
+        ? 'left'
+        : order?.middle?.includes('date')
+        ? null
+        : order?.right?.includes('date')
+        ? 'right'
+        : null,
+    },
+    {
+      key: 'duration',
+      content: <span>Duration</span>,
+      topHeader: 'Run',
+      pin: order?.left?.includes('date')
+        ? 'left'
+        : order?.right?.includes('date')
+        ? 'right'
+        : null,
+    },
   ].concat(
     Object.keys(metricsColumns).reduce((acc: any, key: string) => {
       const systemMetric: boolean = isSystemMetric(key);
-      acc = [
-        ...acc,
-        ...Object.keys(metricsColumns[key]).map((metricContext) => ({
-          key: `${systemMetric ? key : `${key}_${metricContext}`}`,
-          content: isSystemMetric(key) ? (
+      const systemMetricsList: ITableColumn[] = [];
+      const metricsList: ITableColumn[] = [];
+      Object.keys(metricsColumns[key]).forEach((metricContext) => {
+        const columnKey = `${systemMetric ? key : `${key}_${metricContext}`}`;
+        let column = {
+          key: columnKey,
+          content: systemMetric ? (
             <span>{formatSystemMetricName(key)}</span>
           ) : (
             <Badge
-              size='small'
+              monospace
+              size='xSmall'
               color={COLORS[0][0]}
-              label={metricContext === '' ? 'No context' : metricContext}
+              label={metricContext === '' ? 'Empty context' : metricContext}
             />
           ),
-          topHeader: isSystemMetric(key) ? 'System Metrics' : key,
-          pin: order?.left?.includes(`${key}_${metricContext}`)
+          topHeader: systemMetric ? 'System Metrics' : key,
+          pin: order?.left?.includes(columnKey)
             ? 'left'
-            : order?.right?.includes(`${key}_${metricContext}`)
+            : order?.right?.includes(columnKey)
             ? 'right'
             : null,
-        })),
+        };
+        systemMetric
+          ? systemMetricsList.push(column)
+          : metricsList.push(column);
+      });
+      acc = [
+        ...acc,
+        ...metricsList.sort(alphabeticalSortComparator({ orderBy: 'key' })),
+        ...systemMetricsList.sort(
+          alphabeticalSortComparator({ orderBy: 'key' }),
+        ),
       ];
       return acc;
     }, []),
     runColumns.map((param) => ({
       key: param,
       content: <span>{param}</span>,
-      topHeader: 'Params',
+      topHeader: 'Run Params',
       pin: order?.left?.includes(param)
         ? 'left'
         : order?.right?.includes(param)
@@ -83,40 +141,16 @@ function getRunsTableColumns(
         : null,
     })),
   );
-  if (groupFields) {
-    columns.push({
-      key: '#',
-      content: '#',
-      topHeader: 'Grouping',
-      pin: 'left',
-    });
-    Object.keys(groupFields).forEach((field) => {
-      const key = field.replace('run.params.', '');
-      const column = columns.find((col) => col.key === key);
-      if (!!column) {
-        column.pin = 'left';
-        column.topHeader = 'Grouping';
-      }
-    });
-  }
 
   columns = columns.map((col) => ({
     ...col,
-    isHidden: hiddenColumns.includes(col.key),
+    isHidden:
+      !TABLE_DEFAULT_CONFIG.runs.nonHidableColumns.has(col.key) &&
+      hiddenColumns.includes(col.key),
   }));
 
   const columnsOrder = order?.left.concat(order.middle).concat(order.right);
   columns.sort((a, b) => {
-    if (a.key === '#') {
-      return -1;
-    } else if (
-      groupFields?.hasOwnProperty(a.key) ||
-      groupFields?.hasOwnProperty(`run.params.${a.key}`)
-    ) {
-      return -1;
-    } else if (a.key === 'actions') {
-      return 1;
-    }
     if (!columnsOrder.includes(a.key) && !columnsOrder.includes(b.key)) {
       return 0;
     } else if (!columnsOrder.includes(a.key)) {
@@ -141,13 +175,7 @@ function runsTableRowRenderer(
       const col = columns[i];
       if (Array.isArray(rowData[col])) {
         row[col] = {
-          content: (
-            <Badge
-              size='small'
-              color={COLORS[0][0]}
-              label={`${rowData[col].length} values`}
-            />
-          ),
+          content: <GroupedColumnHeader data={rowData[col]} />,
         };
       }
     }
@@ -158,12 +186,11 @@ function runsTableRowRenderer(
       experiment: rowData.experiment,
       run: {
         content: (
-          <Link
-            to={PathEnum.Run_Detail.replace(':runHash', rowData.runHash)}
-            component={RouteLink}
-          >
-            {rowData.run}
-          </Link>
+          <RunNameColumn
+            run={rowData.run}
+            runHash={rowData.hash}
+            active={rowData.active}
+          />
         ),
       },
       actions: {

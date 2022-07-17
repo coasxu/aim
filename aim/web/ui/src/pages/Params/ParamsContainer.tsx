@@ -1,72 +1,106 @@
 import React from 'react';
-import { useRouteMatch, useHistory } from 'react-router-dom';
+import { useHistory, useRouteMatch } from 'react-router-dom';
 
-import { RowHeightSize } from 'config/table/tableConfigs';
+import { ANALYTICS_EVENT_KEYS } from 'config/analytics/analyticsKeysMap';
 
 import useModel from 'hooks/model/useModel';
 import usePanelResize from 'hooks/resize/usePanelResize';
+import useResizeObserver from 'hooks/window/useResizeObserver';
 
 import paramsAppModel from 'services/models/params/paramsAppModel';
 import * as analytics from 'services/analytics';
+import { AppNameEnum } from 'services/models/explorer';
 
-import {
-  IChartTitleData,
-  IChartTooltip,
-  IGroupingSelectOption,
-} from 'types/services/models/metrics/metricsAppModel';
-import {
-  IParamsAppConfig,
-  IParamsAppModelState,
-} from 'types/services/models/params/paramsAppModel';
+import { IParamsAppModelState } from 'types/services/models/params/paramsAppModel';
+import { ITableRef } from 'types/components/Table/Table';
+import { IChartPanelRef } from 'types/components/ChartPanel/ChartPanel';
+import { IApiRequest } from 'types/services/services';
 
 import getStateFromUrl from 'utils/getStateFromUrl';
+import exceptionHandler from 'utils/app/exceptionHandler';
+import setComponentRefs from 'utils/app/setComponentRefs';
+import manageSystemMetricColumns from 'utils/app/manageSystemMetricColumns';
 
 import Params from './Params';
 
 function ParamsContainer(): React.FunctionComponentElement<React.ReactNode> {
+  const tableRef = React.useRef<ITableRef>(null);
+  const chartPanelRef = React.useRef<IChartPanelRef>(null);
   const chartElemRef = React.useRef<HTMLDivElement>(null);
   const tableElemRef = React.useRef<HTMLDivElement>(null);
   const wrapperElemRef = React.useRef<HTMLDivElement>(null);
   const resizeElemRef = React.useRef<HTMLDivElement>(null);
-  const paramsData = useModel<Partial<IParamsAppModelState> | any>(
-    paramsAppModel,
-  );
+  const paramsData =
+    useModel<Partial<IParamsAppModelState | any>>(paramsAppModel);
   const route = useRouteMatch<any>();
   const history = useHistory();
-
+  const [chartPanelOffsetHeight, setChartPanelOffsetHeight] = React.useState(
+    chartElemRef?.current?.offsetWidth,
+  );
   const panelResizing = usePanelResize(
     wrapperElemRef,
     chartElemRef,
     tableElemRef,
     resizeElemRef,
-    paramsData?.config?.table || {},
+    paramsData?.config?.table,
     paramsAppModel.onTableResizeEnd,
   );
 
+  useResizeObserver(() => {
+    if (chartElemRef?.current?.offsetHeight !== chartPanelOffsetHeight) {
+      setChartPanelOffsetHeight(chartElemRef?.current?.offsetHeight);
+    }
+  }, chartElemRef);
+
+  React.useEffect(() => {
+    if (tableRef.current && chartPanelRef.current) {
+      setComponentRefs({
+        model: paramsAppModel,
+        refElement: {
+          tableRef,
+          chartPanelRef,
+        },
+      });
+    }
+    if (paramsData?.rawData?.length > 0) {
+      manageSystemMetricColumns(paramsAppModel);
+    }
+  }, [paramsData?.rawData]);
+
   React.useEffect(() => {
     paramsAppModel.initialize(route.params.appId);
-    let appRequestRef: {
-      call: () => Promise<any>;
-      abort: () => void;
-    };
+    let appRequestRef: IApiRequest<void>;
+    let paramsRequestRef: IApiRequest<void>;
     if (route.params.appId) {
       appRequestRef = paramsAppModel.getAppConfigData(route.params.appId);
-      appRequestRef.call().then(() => {
-        paramsAppModel.getParamsData().call();
-      });
+      appRequestRef
+        .call((detail: any) => {
+          exceptionHandler({ detail, model: paramsAppModel });
+        })
+        .then(() => {
+          paramsAppModel.setDefaultAppConfigData(false);
+          paramsRequestRef = paramsAppModel.getParamsData();
+          paramsRequestRef.call((detail: any) => {
+            exceptionHandler({ detail, model: paramsAppModel });
+          });
+        });
     } else {
       paramsAppModel.setDefaultAppConfigData();
+      paramsRequestRef = paramsAppModel.getParamsData();
+      paramsRequestRef.call((detail: any) => {
+        exceptionHandler({ detail, model: paramsAppModel });
+      });
     }
-    const paramsRequestRef = paramsAppModel.getParamsData();
-    paramsRequestRef.call();
-    analytics.pageView('[ParamsExplorer]');
+
+    analytics.pageView(ANALYTICS_EVENT_KEYS.params.pageView);
 
     const unListenHistory = history.listen(() => {
-      if (!!paramsData.config) {
+      if (!!paramsData?.config) {
         if (
-          paramsData.config.grouping !== getStateFromUrl('grouping') ||
-          paramsData.config.chart !== getStateFromUrl('chart') ||
-          paramsData.config.select !== getStateFromUrl('select')
+          (paramsData.config.grouping !== getStateFromUrl('grouping') ||
+            paramsData.config.chart !== getStateFromUrl('chart') ||
+            paramsData.config.select !== getStateFromUrl('select')) &&
+          history.location.pathname === `/${AppNameEnum.PARAMS}`
         ) {
           paramsAppModel.setDefaultAppConfigData();
           paramsAppModel.updateModelData();
@@ -75,18 +109,19 @@ function ParamsContainer(): React.FunctionComponentElement<React.ReactNode> {
     });
     return () => {
       paramsAppModel.destroy();
-      paramsRequestRef.abort();
+      paramsRequestRef?.abort();
       unListenHistory();
       if (appRequestRef) {
         appRequestRef.abort();
       }
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return (
     <Params
-      tableRef={paramsData?.refs?.tableRef}
-      chartPanelRef={paramsData?.refs?.chartPanelRef}
+      tableRef={tableRef}
+      chartPanelRef={chartPanelRef}
       tableElemRef={tableElemRef}
       chartElemRef={chartElemRef}
       wrapperElemRef={wrapperElemRef}
@@ -95,30 +130,32 @@ function ParamsContainer(): React.FunctionComponentElement<React.ReactNode> {
       highPlotData={paramsData?.highPlotData}
       tableData={paramsData?.tableData}
       tableColumns={paramsData?.tableColumns}
-      focusedState={paramsData?.config?.chart?.focusedState}
-      requestIsPending={paramsData?.requestIsPending}
+      focusedState={paramsData?.config?.chart?.focusedState!}
+      requestStatus={paramsData?.requestStatus!}
+      requestProgress={paramsData?.requestProgress!}
+      selectedRows={paramsData?.selectedRows!}
+      tooltip={paramsData?.tooltip!}
+      brushExtents={paramsData?.config?.chart?.brushExtents}
       isVisibleColorIndicator={
-        paramsData?.config?.chart?.isVisibleColorIndicator
+        paramsData?.config?.chart?.isVisibleColorIndicator!
       }
-      groupingData={
-        paramsData?.config?.grouping as IParamsAppConfig['grouping']
-      }
-      selectedParamsData={
-        paramsData?.config?.select as IParamsAppConfig['select']
-      }
+      sameValueColumns={paramsData?.sameValueColumns!}
+      chartPanelOffsetHeight={chartPanelOffsetHeight}
+      groupingData={paramsData?.config?.grouping!}
+      selectedParamsData={paramsData?.config?.select!}
       sortFields={paramsData?.config?.table?.sortFields!}
-      curveInterpolation={paramsData?.config?.chart?.curveInterpolation}
-      tooltip={paramsData?.config?.chart?.tooltip as IChartTooltip}
-      chartTitleData={paramsData?.chartTitleData as IChartTitleData}
-      groupingSelectOptions={
-        paramsData?.groupingSelectOptions as IGroupingSelectOption[]
-      }
+      curveInterpolation={paramsData?.config?.chart?.curveInterpolation!}
+      chartTitleData={paramsData?.chartTitleData!}
+      groupingSelectOptions={paramsData?.groupingSelectOptions!}
       hiddenColumns={paramsData?.config?.table?.hiddenColumns!}
-      resizeMode={paramsData?.config?.table?.resizeMode}
+      hideSystemMetrics={paramsData?.config?.table?.hideSystemMetrics!}
+      columnsOrder={paramsData?.config?.table?.columnsOrder!}
+      resizeMode={paramsData?.config?.table?.resizeMode!}
       hiddenMetrics={paramsData?.config?.table?.hiddenMetrics!}
-      notifyData={paramsData?.notifyData}
-      tableRowHeight={paramsData?.config?.table?.rowHeight as RowHeightSize}
-      columnsWidths={paramsData?.config?.table?.columnsWidths}
+      notifyData={paramsData?.notifyData!}
+      tableRowHeight={paramsData?.config?.table?.rowHeight!}
+      columnsWidths={paramsData?.config?.table?.columnsWidths!}
+      selectFormData={paramsData?.selectFormData!}
       onColorIndicatorChange={paramsAppModel.onColorIndicatorChange}
       onCurveInterpolationChange={paramsAppModel.onCurveInterpolationChange}
       onParamsSelectChange={paramsAppModel.onParamsSelectChange}
@@ -149,8 +186,12 @@ function ParamsContainer(): React.FunctionComponentElement<React.ReactNode> {
       onSortReset={paramsAppModel.onSortReset}
       onSortFieldsChange={paramsAppModel.onSortChange}
       onShuffleChange={paramsAppModel.onShuffleChange}
-      liveUpdateConfig={paramsData.config?.liveUpdate}
+      onAxisBrushExtentChange={paramsAppModel.onAxisBrushExtentChange}
+      liveUpdateConfig={paramsData?.config?.liveUpdate!}
       onLiveUpdateConfigChange={paramsAppModel.changeLiveUpdateConfig}
+      onRowSelect={paramsAppModel.onRowSelect}
+      archiveRuns={paramsAppModel.archiveRuns}
+      deleteRuns={paramsAppModel.deleteRuns}
     />
   );
 }

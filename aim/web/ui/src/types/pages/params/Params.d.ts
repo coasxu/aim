@@ -4,24 +4,33 @@ import { RouteChildrenProps } from 'react-router-dom';
 import { ITableRef } from 'components/Table/Table';
 
 import { ResizeModeEnum } from 'config/enums/tableEnums';
+import { RequestStatusEnum } from 'config/enums/requestStatusEnum';
 
 import {
-  GroupNameType,
+  GroupNameEnum,
   IChartTitleData,
-  IChartTooltip,
+  ITooltip,
   IFocusedState,
   IGroupingSelectOption,
-  IMetricAppConfig,
   IOnGroupingModeChangeParams,
   IOnGroupingSelectChangeParams,
 } from 'types/services/models/metrics/metricsAppModel';
 import { IActivePoint } from 'types/utils/d3/drawHoverAttributes';
 import { IChartPanelRef } from 'types/components/ChartPanel/ChartPanel';
-import { IParamsAppConfig } from 'types/services/models/params/paramsAppModel';
-import { INotification } from 'types/components/NotificationContainer/NotificationContainer';
-import { IBookmarkFormState } from 'types/pages/metrics/components/BookmarkForm/BookmarkForm';
+import {
+  INotification,
+  ISyntaxErrorDetails,
+} from 'types/components/NotificationContainer/NotificationContainer';
+import { IBookmarkFormState } from 'types/components/BookmarkForm/BookmarkForm';
+import {
+  IColumnsOrder,
+  IGroupingConfig,
+  ISelectConfig,
+  ISelectOption,
+} from 'types/services/models/explorer/createAppModel';
 
 import { CurveEnum } from 'utils/d3';
+import { IRequestProgress } from 'utils/app/setRequestProgress';
 
 export interface IParamsProps extends Partial<RouteChildrenProps> {
   chartElemRef: React.RefObject<HTMLDivElement>;
@@ -30,24 +39,33 @@ export interface IParamsProps extends Partial<RouteChildrenProps> {
   tableElemRef: React.RefObject<HTMLDivElement>;
   wrapperElemRef: React.RefObject<HTMLDivElement>;
   resizeElemRef: React.RefObject<HTMLDivElement>;
+  chartPanelOffsetHeight?: number;
   curveInterpolation: CurveEnum;
   panelResizing: boolean;
-  requestIsPending: boolean;
+  requestStatus: RequestStatusEnum;
+  requestProgress: IRequestProgress;
   highPlotData: any;
-  groupingData: IMetricAppConfig['grouping'];
+  groupingData: IGroupingConfig;
   groupingSelectOptions: IGroupingSelectOption[];
   hiddenMetrics: string[];
+  hideSystemMetrics: boolean;
   sortFields: [string, 'asc' | 'desc' | boolean][];
   focusedState: IFocusedState;
   isVisibleColorIndicator: boolean;
-  tooltip: IChartTooltip;
+  tooltip: ITooltip;
   chartTitleData: IChartTitleData;
-  selectedParamsData: IParamsAppConfig['select'];
+  selectedParamsData: ISelectConfig;
   onRowHeightChange: any;
   onSortFieldsChange: any;
   onParamVisibilityChange: any;
   onColumnsOrderChange: any;
   tableData: any;
+  selectedRows: { [key: string]: any };
+  brushExtents: {
+    [key: string]: {
+      [key: string]: [number, number] | [string, string];
+    };
+  };
   onTableRowHover?: (rowKey?: string) => void;
   onTableRowClick?: (rowKey?: string) => void;
   tableColumns: any;
@@ -55,6 +73,13 @@ export interface IParamsProps extends Partial<RouteChildrenProps> {
   notifyData: INotification[];
   tableRowHeight?: any;
   hiddenColumns: any;
+  selectFormData: {
+    options: ISelectOption[];
+    suggestions: string[];
+    error: ISyntaxErrorDetails;
+  };
+  columnsOrder: IColumnsOrder;
+  sameValueColumns: string[] | [];
   onNotificationDelete: (id: number) => void;
   onCurveInterpolationChange: () => void;
   onActivePointChange: (
@@ -62,19 +87,19 @@ export interface IParamsProps extends Partial<RouteChildrenProps> {
     focusedStateActive: boolean = false,
   ) => void;
   onColorIndicatorChange: () => void;
-  onParamsSelectChange: IParamsAppConfig['onParamsSelectChange'];
+  onParamsSelectChange: (options: ISelectOption[]) => void;
   onSelectRunQueryChange: (query: string) => void;
   onGroupingSelectChange: (params: IOnGroupingSelectChangeParams) => void;
   onGroupingModeChange: (params: IOnGroupingModeChangeParams) => void;
   onGroupingPaletteChange: (index: number) => void;
-  onGroupingReset: (groupName: GroupNameType) => void;
-  onGroupingApplyChange: (groupName: GroupNameType) => void;
+  onGroupingReset: (groupName: GroupNameEnum) => void;
+  onGroupingApplyChange: (groupName: GroupNameEnum) => void;
   onGroupingPersistenceChange: (groupName: 'color' | 'stroke') => void;
   onBookmarkCreate: (params: IBookmarkFormState) => void;
   onBookmarkUpdate: (id: string) => void;
   onNotificationAdd: (notification: INotification) => void;
   onResetConfigData: () => void;
-  onChangeTooltip: (tooltip: Partial<IChartTooltip>) => void;
+  onChangeTooltip: (tooltip: Partial<ITooltip>) => void;
   onExportTableData: (e: React.ChangeEvent<any>) => void;
   onColumnsVisibilityChange: (order: any) => void;
   onTableDiffShow: () => void;
@@ -82,10 +107,18 @@ export interface IParamsProps extends Partial<RouteChildrenProps> {
   onSortReset: () => void;
   updateColumnsWidths: (key: string, width: number, isReset: boolean) => void;
   onShuffleChange: (name: 'stroke' | 'color') => void;
+  onAxisBrushExtentChange: (
+    key: string,
+    extent: [number, number] | [string, string] | null,
+    chartIndex: number,
+  ) => void;
   columnsWidths: { [key: string]: number };
   liveUpdateConfig: { delay: number; enabled: boolean };
   onLiveUpdateConfigChange: (config: {
     delay?: number;
     enabled?: boolean;
   }) => void;
+  onRowSelect: any;
+  archiveRuns: (ids: string[], archived: boolean) => void;
+  deleteRuns: (ids: string[]) => void;
 }

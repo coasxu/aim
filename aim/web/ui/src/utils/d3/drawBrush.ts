@@ -2,15 +2,13 @@ import * as d3 from 'd3';
 
 import { ZoomEnum } from 'components/ZoomInPopover/ZoomInPopover';
 
-import { IDrawBrushProps } from 'types/utils/d3/drawBrush';
-import { IGetAxisScale } from 'types/utils/d3/getAxisScale';
+import { IDrawBrushArgs } from 'types/utils/d3/drawBrush';
 
 import getAxisScale from './getAxisScale';
 
-function drawBrush(props: IDrawBrushProps): void {
+function drawBrush(args: IDrawBrushArgs): void {
   const {
     index,
-    brushRef,
     plotBoxRef,
     plotNodeRef,
     visBoxRef,
@@ -23,14 +21,12 @@ function drawBrush(props: IDrawBrushProps): void {
     max,
     zoom,
     onZoomChange,
-  } = props;
+    readOnly,
+  } = args;
 
   if (!plotNodeRef.current) {
     return;
   }
-
-  brushRef.current.xScale = attributesRef.current.xScale;
-  brushRef.current.yScale = attributesRef.current.yScale;
 
   const brush = d3
     .brush()
@@ -40,54 +36,50 @@ function drawBrush(props: IDrawBrushProps): void {
     ])
     .on('end', handleBrushChange);
 
-  if (zoom?.active) {
+  if (zoom?.active && !readOnly) {
     plotNodeRef.current.append('g').call(brush).attr('class', 'brush');
   }
 
-  brushRef.current.updateScales = function (
-    xScale: IGetAxisScale,
-    yScale: IGetAxisScale,
-  ) {
-    brushRef.current.xScale = xScale;
-    brushRef.current.yScale = yScale;
-  };
-
-  brushRef.current.handleZoomIn = function (
+  function handleZoomIn(
     xValues: [number, number],
     yValues: [number, number],
   ): void {
     const { width, height, margin } = visBoxRef.current;
 
     // updating Scales domain
-    brushRef.current.xScale
+    attributesRef.current.xScale
       .domain(xValues)
       .range([0, width - margin.left - margin.right]);
 
-    brushRef.current.yScale
+    attributesRef.current.yScale
       .domain(yValues)
       .range([height - margin.top - margin.bottom, 0]);
 
     // updating axes with new Scales
-    axesRef.current.updateXAxis(brushRef.current.xScale);
-    axesRef.current.updateYAxis(brushRef.current.yScale);
+    axesRef.current.updateXAxis(attributesRef.current.xScale);
+    axesRef.current.updateYAxis(attributesRef.current.yScale);
 
-    linesRef.current.updateLinesScales(
-      brushRef.current.xScale,
-      brushRef.current.yScale,
+    linesRef.current.updateScales?.(
+      attributesRef.current.xScale,
+      attributesRef.current.yScale,
     );
 
-    linesRef.current.updateAggregatedAreasScales(
-      brushRef.current.xScale,
-      brushRef.current.yScale,
+    linesRef.current.updateAggregatedAreasScales?.(
+      attributesRef.current.xScale,
+      attributesRef.current.yScale,
     );
 
-    linesRef.current.updateAggregatedLinesScales(
-      brushRef.current.xScale,
-      brushRef.current.yScale,
+    linesRef.current.updateAggregatedLinesScales?.(
+      attributesRef.current.xScale,
+      attributesRef.current.yScale,
     );
 
+    attributesRef.current.updateScales?.(
+      attributesRef.current.xScale,
+      attributesRef.current.yScale,
+    );
     attributesRef.current.updateFocusedChart?.();
-  };
+  }
 
   // This remove the grey brush area as soon as the selection has been done
   function removeBrush() {
@@ -106,14 +98,14 @@ function drawBrush(props: IDrawBrushProps): void {
       removeBrush();
     } else {
       // inverting pixels to x,y values
-      const left: number = brushRef.current.xScale.invert(extent[0][0]);
-      const right: number = brushRef.current.xScale.invert(extent[1][0]);
+      const left: number = attributesRef.current.xScale.invert(extent[0][0]);
+      const right: number = attributesRef.current.xScale.invert(extent[1][0]);
 
-      const top: number = brushRef.current.yScale.invert(extent[0][1]);
-      const bottom: number = brushRef.current.yScale.invert(extent[1][1]);
+      const top: number = attributesRef.current.yScale.invert(extent[0][1]);
+      const bottom: number = attributesRef.current.yScale.invert(extent[1][1]);
 
-      const [xMin, xMax]: number[] = brushRef.current.xScale.domain();
-      const [yMin, yMax]: number[] = brushRef.current.yScale.domain();
+      const [xMin, xMax]: number[] = attributesRef.current.xScale.domain();
+      const [yMin, yMax]: number[] = attributesRef.current.yScale.domain();
 
       const xValues: [number, number] | null =
         extent[1][0] - extent[0][0] < 5
@@ -126,7 +118,7 @@ function drawBrush(props: IDrawBrushProps): void {
           : [bottom < yMin ? yMin : bottom, top > yMax ? yMax : top];
 
       if (xValues && yValues) {
-        brushRef.current.handleZoomIn?.(xValues, yValues);
+        handleZoomIn?.(xValues, yValues);
         if (typeof onZoomChange === 'function' && zoom) {
           onZoomChange({
             active: zoom.mode !== ZoomEnum.SINGLE,
@@ -164,10 +156,9 @@ function drawBrush(props: IDrawBrushProps): void {
     axesRef.current.updateYAxis(yScale);
 
     // setting scales and lines to initial state
-    brushRef.current.updateScales?.(xScale, yScale);
-    linesRef.current.updateLinesScales(xScale, yScale);
-    linesRef.current.updateAggregatedAreasScales(xScale, yScale);
-    linesRef.current.updateAggregatedLinesScales(xScale, yScale);
+    linesRef.current.updateScales?.(xScale, yScale);
+    linesRef.current.updateAggregatedAreasScales?.(xScale, yScale);
+    linesRef.current.updateAggregatedLinesScales?.(xScale, yScale);
 
     attributesRef.current.updateScales?.(xScale, yScale);
     attributesRef.current.updateFocusedChart?.();
@@ -179,10 +170,7 @@ function drawBrush(props: IDrawBrushProps): void {
     );
     const lastHistoryState = chartZoomHistory[chartZoomHistory.length - 1];
     if (lastHistoryState) {
-      brushRef.current.handleZoomIn(
-        lastHistoryState.xValues,
-        lastHistoryState.yValues,
-      );
+      handleZoomIn(lastHistoryState.xValues, lastHistoryState.yValues);
     }
   }
 }

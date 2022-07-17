@@ -1,10 +1,15 @@
 import React from 'react';
+import * as d3 from 'd3';
+import classNames from 'classnames';
+
+import ErrorBoundary from 'components/ErrorBoundary/ErrorBoundary';
+
+import { RENDER_LINES_OPTIMIZED_LIMIT } from 'config/charts';
 
 import useResizeObserver from 'hooks/window/useResizeObserver';
 
 import {
   IAttributesRef,
-  IBrushRef,
   ILineChartProps,
 } from 'types/components/LineChart/LineChart';
 import { IFocusedState } from 'types/services/models/metrics/metricsAppModel';
@@ -14,11 +19,12 @@ import {
   clearArea,
   drawAxes,
   drawLines,
-  processData,
-  getAxisScale,
+  processLineChartData,
   drawBrush,
   drawHoverAttributes,
 } from 'utils/d3';
+
+import './LineChart.scss';
 
 const LineChart = React.forwardRef(function LineChart(
   props: ILineChartProps,
@@ -26,18 +32,21 @@ const LineChart = React.forwardRef(function LineChart(
 ): React.FunctionComponentElement<React.ReactNode> {
   const {
     data,
-    index,
+    index = 0,
+    nameKey = '',
     aggregatedData,
     aggregationConfig,
     syncHoverState,
     axesScaleType,
-    displayOutliers,
+    ignoreOutliers,
     alignmentConfig,
     highlightMode,
     curveInterpolation,
     chartTitle,
     zoom,
     onZoomChange,
+    readOnly = false,
+    resizeMode,
   } = props;
 
   // boxes
@@ -65,7 +74,7 @@ const LineChart = React.forwardRef(function LineChart(
   const bgRectNodeRef = React.useRef(null);
   const plotNodeRef = React.useRef(null);
   const axesNodeRef = React.useRef(null);
-  const linesNodeRef = React.useRef(null);
+  const linesNodeRef = React.useRef<any>(null);
   const attributesNodeRef = React.useRef(null);
   const xAxisLabelNodeRef = React.useRef(null);
   const yAxisLabelNodeRef = React.useRef(null);
@@ -73,20 +82,15 @@ const LineChart = React.forwardRef(function LineChart(
 
   // methods and values refs
   const axesRef = React.useRef({});
-  const brushRef = React.useRef<IBrushRef>({});
   const linesRef = React.useRef({});
   const attributesRef = React.useRef<IAttributesRef>({});
   const humanizerConfigRef = React.useRef({});
   const rafIDRef = React.useRef<number>();
 
   function draw() {
-    const { processedData, min, max, xValues } = processData(
-      data,
-      displayOutliers,
-    );
-
     drawArea({
       index,
+      nameKey,
       visBoxRef,
       plotBoxRef,
       parentRef,
@@ -100,18 +104,38 @@ const LineChart = React.forwardRef(function LineChart(
       chartTitle,
     });
 
-    const { width, height, margin } = visBoxRef.current;
+    const {
+      processedData,
+      processedAggrData,
+      min,
+      max,
+      xScale,
+      yScale,
+      allXValues,
+      allYValues,
+    } = processLineChartData({
+      data,
+      ignoreOutliers,
+      visBoxRef,
+      axesScaleType,
+      aggregatedData,
+      aggregationConfig,
+    });
 
-    const xScale = getAxisScale({
-      domainData: [min.x, max.x],
-      rangeData: [0, width - margin.left - margin.right],
-      scaleType: axesScaleType.xAxis,
-    });
-    const yScale = getAxisScale({
-      domainData: [min.y, max.y],
-      rangeData: [height - margin.top - margin.bottom, 0],
-      scaleType: axesScaleType.yAxis,
-    });
+    if (!allXValues.length || !allYValues.length) {
+      if (visAreaRef.current && !readOnly) {
+        d3.select(visAreaRef.current)
+          .append('text')
+          .classed('emptyData', true)
+          .text('No Data');
+
+        if (attributesRef.current?.clearHoverAttributes) {
+          attributesRef.current.clearHoverAttributes();
+        }
+        attributesRef.current = {};
+      }
+      return;
+    }
 
     attributesRef.current.xScale = xScale;
     attributesRef.current.yScale = yScale;
@@ -123,18 +147,17 @@ const LineChart = React.forwardRef(function LineChart(
       plotBoxRef,
       xScale,
       yScale,
-      width,
-      height,
-      margin,
+      visBoxRef,
       alignmentConfig,
-      xValues,
-      attributesRef,
+      axesScaleType,
       humanizerConfigRef,
+      drawBgTickLines: { y: true, x: false },
     });
 
     drawLines({
       index,
-      data: processedData,
+      processedData,
+      nameKey,
       linesNodeRef,
       linesRef,
       curveInterpolation,
@@ -142,33 +165,44 @@ const LineChart = React.forwardRef(function LineChart(
       yScale,
       highlightMode,
       aggregationConfig,
-      aggregatedData,
+      processedAggrData,
+      readOnly,
     });
 
-    drawHoverAttributes({
-      index,
-      data: processedData,
-      highlightMode,
-      syncHoverState,
-      visAreaRef,
-      attributesRef,
-      plotBoxRef,
-      visBoxRef,
-      svgNodeRef,
-      bgRectNodeRef,
-      attributesNodeRef,
-      xAxisLabelNodeRef,
-      yAxisLabelNodeRef,
-      linesNodeRef,
-      highlightedNodeRef,
-      aggregationConfig,
-      humanizerConfigRef,
-      alignmentConfig,
-    });
+    // render lines with low quality if lines count are more than 'RENDER_LINES_OPTIMIZED_LIMIT'
+    if (!readOnly && linesNodeRef.current) {
+      const linesCount = linesNodeRef.current.selectChildren().size();
+      if (linesCount > RENDER_LINES_OPTIMIZED_LIMIT) {
+        linesNodeRef.current.classed('optimizeRendering', true);
+      }
+    }
+
+    if (!readOnly) {
+      drawHoverAttributes({
+        index,
+        nameKey,
+        data,
+        axesScaleType,
+        highlightMode,
+        syncHoverState,
+        visAreaRef,
+        attributesRef,
+        plotBoxRef,
+        visBoxRef,
+        svgNodeRef,
+        bgRectNodeRef,
+        attributesNodeRef,
+        xAxisLabelNodeRef,
+        yAxisLabelNodeRef,
+        linesNodeRef,
+        highlightedNodeRef,
+        aggregationConfig,
+        alignmentConfig,
+      });
+    }
 
     drawBrush({
       index,
-      brushRef,
       plotBoxRef,
       plotNodeRef,
       visBoxRef,
@@ -181,6 +215,7 @@ const LineChart = React.forwardRef(function LineChart(
       max,
       zoom,
       onZoomChange,
+      readOnly,
     });
   }
 
@@ -195,14 +230,18 @@ const LineChart = React.forwardRef(function LineChart(
         rafIDRef.current = window.requestAnimationFrame(renderChart);
       }
     },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [
       data,
       zoom,
-      displayOutliers,
+      ignoreOutliers,
       highlightMode,
       axesScaleType,
       curveInterpolation,
       aggregationConfig,
+      readOnly,
+      alignmentConfig,
+      resizeMode,
     ],
   );
 
@@ -221,14 +260,18 @@ const LineChart = React.forwardRef(function LineChart(
         window.cancelAnimationFrame(rafIDRef.current);
       }
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     data,
     zoom,
-    displayOutliers,
+    ignoreOutliers,
     highlightMode,
     axesScaleType,
     curveInterpolation,
     aggregationConfig,
+    readOnly,
+    alignmentConfig,
+    resizeMode,
   ]);
 
   React.useImperativeHandle(ref, () => ({
@@ -255,13 +298,19 @@ const LineChart = React.forwardRef(function LineChart(
   }));
 
   return (
-    <div
-      ref={parentRef}
-      className={`LineChart__container ${zoom?.active ? 'zoomMode' : ''}`}
-    >
-      <div ref={visAreaRef} />
-    </div>
+    <ErrorBoundary>
+      <div
+        ref={parentRef}
+        className={classNames('LineChart', {
+          zoomMode: !readOnly && zoom?.active,
+        })}
+      >
+        <div ref={visAreaRef} />
+      </div>
+    </ErrorBoundary>
   );
 });
+
+LineChart.displayName = 'LineChart';
 
 export default React.memo(LineChart);

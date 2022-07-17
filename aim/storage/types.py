@@ -1,5 +1,6 @@
 from typing import Dict, List, Tuple, Union
 
+from aim.storage.utils import BLOB  # noqa F401
 
 NoneType = type(None)
 
@@ -62,13 +63,5 @@ class SafeNone(metaclass=Singleton):
         raise StopIteration
 
 
-__all__ = [
-    'NoneType',
-    'AimObjectKey',
-    'AimObjectPath',
-    'AimObjectPrimitive',
-    'AimObjectArray',
-    'AimObjectDict',
-    'AimObject',
-    'SafeNone',
-]
+class CustomObjectBase:
+    pass

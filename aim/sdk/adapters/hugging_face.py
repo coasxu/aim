@@ -1,93 +1,120 @@
+from logging import getLogger
 from typing import Optional
 
 from aim.ext.resource.configs import DEFAULT_SYSTEM_TRACKING_INT
+from aim.sdk.num_utils import is_number
 from aim.sdk.run import Run
 
+try:
+    from transformers.trainer_callback import TrainerCallback
+except ImportError:
+    raise RuntimeError(
+        'This contrib module requires Transformers to be installed. '
+        'Please install it with command: \n pip install transformers'
+    )
 
-class AimCallback(object):
-    __hf_callback_cls = None
+logger = getLogger(__name__)
 
-    @staticmethod
-    def __new__(cls, *args, **kwargs):
-        hf_callback_inst = cls.__get_callback_cls()
-        return hf_callback_inst(*args, **kwargs)
 
-    @classmethod
-    def __get_callback_cls(cls):
-        if cls.__hf_callback_cls is not None:
-            return cls.__hf_callback_cls
-
-        from transformers.trainer_callback import TrainerCallback
-
-        class _HuggingFaceCallback(TrainerCallback):
-            def __init__(self,
-                         repo: Optional[str] = None,
-                         experiment: Optional[str] = None,
-                         system_tracking_interval: Optional[int]
-                         = DEFAULT_SYSTEM_TRACKING_INT,
-                         ):
-                self._repo_path = repo
-                self._experiment_name = experiment
-                self._system_tracking_interval = system_tracking_interval
-                self._initialized = False
-                self._current_shift = None
-                self._run = None
-
-            def setup(self, args, state, model):
-                self._initialized = True
-
-                self._run = Run(
-                    repo=self._repo_path,
-                    experiment=self._experiment_name,
-                    system_tracking_interval=self._system_tracking_interval,
-                )
-
-                combined_dict = {**args.to_sanitized_dict()}
-                self._run['hparams'] = combined_dict
-
-                # Store model configs as well
-                # if hasattr(model, 'config') and model.config is not None:
-                #     model_config = model.config.to_dict()
-                #     self._run['model'] = model_config
-
-            def on_train_begin(self, args, state, control,
-                               model=None, **kwargs):
-                if not self._initialized:
-                    self.setup(args, state, model)
-                self._current_shift = 'train'
-
-            def on_evaluate(self, args, state, control, **kwargs):
-                self._current_shift = 'val'
-
-            def on_prediction_step(self, args, state, control, **kwargs):
-                self._current_shift = 'pred'
-
-            def on_log(self, args, state, control,
-                       model=None, logs=None, **kwargs):
-                if not self._initialized:
-                    self.setup(args, state, model)
-
-                context = {
-                    'subset': self._current_shift,
-                }
-                for log_name, log_value in logs.items():
-                    self._run.track(log_value, name=log_name, context=context)
-
-            def on_epoch_end(self, args, state, control, **kwargs):
-                pass
-
-            def __del__(self):
-                if self._initialized and self._run:
-                    del self._run
-                    self._run = None
-
-        cls.__hf_callback_cls = _HuggingFaceCallback
-        return cls.__hf_callback_cls
-
+class AimCallback(TrainerCallback):
     def __init__(self,
                  repo: Optional[str] = None,
                  experiment: Optional[str] = None,
                  system_tracking_interval: Optional[int]
                  = DEFAULT_SYSTEM_TRACKING_INT,
+                 log_system_params: bool = True,
                  ):
-        pass
+        self._repo_path = repo
+        self._experiment_name = experiment
+        self._system_tracking_interval = system_tracking_interval
+        self._log_system_params = log_system_params
+        self._run = None
+        self._run_hash = None
+        self._log_value_warned = False
+
+    @property
+    def experiment(self):
+        if not self._run:
+            self.setup()
+        return self._run
+
+    def setup(self, args=None, state=None, model=None):
+        if state and not state.is_world_process_zero:
+            return
+
+        if not self._run:
+            if self._run_hash:
+                self._run = Run(
+                    self._run_hash,
+                    repo=self._repo_path,
+                    system_tracking_interval=self._system_tracking_interval,
+                )
+            else:
+                self._run = Run(
+                    repo=self._repo_path,
+                    experiment=self._experiment_name,
+                    system_tracking_interval=self._system_tracking_interval,
+                    log_system_params=self._log_system_params,
+                )
+                self._run_hash = self._run.hash
+
+        if args:
+            combined_dict = {**args.to_sanitized_dict()}
+            for key, value in combined_dict.items():
+                self._run.set(('hparams', key), value, strict=False)
+
+        # Store model configs as well
+        # if hasattr(model, 'config') and model.config is not None:
+        #     model_config = model.config.to_dict()
+        #     self._run['model'] = model_config
+
+    def on_train_begin(self, args, state, control,
+                       model=None, **kwargs):
+        if not state.is_world_process_zero:
+            return
+        if not self._run:
+            self.setup(args, state, model)
+
+    def on_train_end(self, args, state, control, **kwargs):
+        if not state.is_world_process_zero:
+            return
+        self.close()
+
+    def on_log(self, args, state, control,
+               model=None, logs=None, **kwargs):
+        if not state.is_world_process_zero:
+            return
+
+        if not self._run:
+            self.setup(args, state, model)
+
+        for log_name, log_value in logs.items():
+            context = {}
+            prefix_set = {'train_', 'eval_', 'test_'}
+            for prefix in prefix_set:
+                if log_name.startswith(prefix):
+                    log_name = log_name[len(prefix):]
+                    context = {'subset': prefix[:-1]}
+                    break
+            if not is_number(log_value):
+                if not self._log_value_warned:
+                    self._log_value_warned = True
+                    logger.warning(
+                        f'Trainer is attempting to log a value of '
+                        f'"{log_value}" of type {type(log_value)} for key "{log_name}"'
+                        f' as a metric which is not a supported value type.'
+                    )
+                continue
+
+            self._run.track(log_value,
+                            name=log_name, context=context,
+                            step=state.global_step, epoch=state.epoch)
+
+    def close(self):
+        if self._run:
+            self._run.close()
+            del self._run
+            self._run = None
+
+    def __del__(self):
+        self.close()

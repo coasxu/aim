@@ -1,17 +1,28 @@
 import * as d3 from 'd3';
 import _ from 'lodash-es';
-import { Unit } from 'humanize-duration';
 import moment from 'moment';
 
-import { IDrawAxesProps } from 'types/utils/d3/drawAxes';
+import { DATE_CHART_TICK } from 'config/dates/dates';
 
-import shortEnglishHumanizer from 'utils/shortEnglishHumanizer';
+import { IDrawAxesArgs } from 'types/utils/d3/drawAxes';
+import { IAxisScale } from 'types/utils/d3/getAxisScale';
 
-import { getKeyByAlignment } from '../formatByAlignment';
+import {
+  formatValueByAlignment,
+  getKeyByAlignment,
+} from 'utils/formatByAlignment';
 
-import { AlignmentOptionsEnum } from './index';
+import shortEnglishHumanizer from '../shortEnglishHumanizer';
 
-function drawAxes(props: IDrawAxesProps): void {
+import {
+  formatXAxisByDefault,
+  formatYAxisByDefault,
+  IFormatAxis,
+} from './tickFormatting';
+
+import { AlignmentOptionsEnum, ScaleEnum } from './index';
+
+function drawAxes(args: IDrawAxesArgs): void {
   const {
     svgNodeRef,
     axesNodeRef,
@@ -19,200 +30,331 @@ function drawAxes(props: IDrawAxesProps): void {
     plotBoxRef,
     xScale,
     yScale,
-    width,
-    height,
-    margin,
+    visBoxRef,
     alignmentConfig,
-    xValues,
-    attributesRef,
+    axesScaleType,
     humanizerConfigRef,
-  } = props;
+    drawBgTickLines = {
+      x: false,
+      y: false,
+    },
+  } = args;
 
-  if (!axesNodeRef?.current || !axesRef?.current || !svgNodeRef?.current) {
+  if (
+    !axesNodeRef?.current ||
+    !axesRef?.current ||
+    !svgNodeRef?.current ||
+    !visBoxRef?.current
+  ) {
     return;
   }
 
-  function getFormattedXAxis(xScale: d3.AxisScale<d3.AxisDomain>) {
-    let xAxis = d3.axisBottom(xScale);
-    let xAlignmentText = '';
-    const [first, last] = attributesRef.current.xScale.domain();
+  const { width, height, margin } = visBoxRef.current;
 
-    switch (alignmentConfig?.type) {
-      case AlignmentOptionsEnum.EPOCH:
-        {
-          xAlignmentText =
-            _.capitalize(getKeyByAlignment(alignmentConfig)) + 's';
+  function formatByStep(args: IFormatAxis) {
+    const { xAxis } = formatXAxisByDefault(args);
+    return {
+      xAxis,
+      xAxisTitle: _.capitalize(getKeyByAlignment(alignmentConfig)) + 's',
+    };
+  }
 
-          let ticksCount = Math.floor(plotBoxRef.current.width / 50);
-          ticksCount = ticksCount > 1 ? ticksCount - 1 : 1;
-          const ticks = xValues.filter((x) => Math.round(x) - x === 0);
+  function formatByEpoch(args: IFormatAxis) {
+    const { xAxis, ticksCount } = formatXAxisByDefault({
+      ...args,
+      tickAdditionalConfig: {
+        minCount: 3,
+      },
+    });
 
-          xAxis.ticks(ticksCount).tickValues(ticks);
-        }
-        break;
-      case AlignmentOptionsEnum.RELATIVE_TIME:
-        {
-          xAlignmentText = _.capitalize(getKeyByAlignment(alignmentConfig));
+    const { scale } = args;
 
-          let ticksCount = Math.floor(plotBoxRef.current.width / 85);
-          ticksCount = ticksCount > 1 ? ticksCount - 1 : 1;
-          const minute = 60;
-          const hour = 60 * minute;
-          const day = 24 * hour;
-          const week = 7 * day;
-
-          const diff = Math.ceil(last - first);
-          let unit: number | null = null;
-          let formatUnit: Unit;
-          if (diff / week > 4) {
-            unit = week;
-            formatUnit = 'w';
-          } else if (diff / day > 3) {
-            unit = day;
-            formatUnit = 'd';
-          } else if (diff / hour > 3) {
-            unit = hour;
-            formatUnit = 'h';
-          } else if (diff / minute > 4) {
-            unit = minute;
-            formatUnit = 'm';
-          } else {
-            unit = null;
-            formatUnit = 's';
-          }
-
-          let tickValues =
-            unit === null
-              ? null
-              : _.range(Math.ceil(first), Math.ceil(last) + 1).filter(
-                  (t) => t % unit! === 0,
-                );
-
-          if (unit !== null && tickValues && ticksCount < tickValues.length) {
-            tickValues = tickValues.filter((v, i) => {
-              if (i === 0 || i === tickValues!.length - 1) {
-                return true;
-              }
-
-              const interval = Math.floor(
-                (tickValues!.length - 2) / (ticksCount - 2),
-              );
-              return i % interval === 0 && tickValues!.length - interval > i;
-            });
-          }
-
-          humanizerConfigRef.current = {
-            units: [formatUnit],
-            maxDecimalPoints: 2,
-          };
-
-          xAxis
-            .ticks(ticksCount)
-            .tickValues(tickValues!)
-            .tickFormat((d, i) =>
-              shortEnglishHumanizer(
-                Math.round(+d * 1000),
-                humanizerConfigRef.current,
-              ),
-            );
-        }
-        break;
-      case AlignmentOptionsEnum.ABSOLUTE_TIME:
-        {
-          xAlignmentText = _.capitalize(getKeyByAlignment(alignmentConfig));
-
-          let ticksCount = Math.floor(plotBoxRef.current.width / 120);
-          ticksCount = ticksCount > 1 ? ticksCount - 1 : 1;
-          let tickValues = _.range(first, last);
-
-          xAxis
-            .ticks(ticksCount)
-            .tickValues(
-              tickValues.filter((v, i) => {
-                if (i === 0 || i === tickValues.length - 1) {
-                  return true;
-                }
-                const interval = Math.floor(
-                  (tickValues.length - 2) / (ticksCount - 2),
-                );
-                return i % interval === 0 && tickValues.length - interval > i;
-              }),
-            )
-            .tickFormat((d) => moment(+d).format('HH:mm:ss D MMM, YY'));
-        }
-
-        break;
-      case AlignmentOptionsEnum.CUSTOM_METRIC:
-        {
-          xAlignmentText = alignmentConfig?.metric;
-
-          let ticksCount = Math.floor(plotBoxRef.current.width / 120);
-          ticksCount = ticksCount > 1 ? ticksCount - 1 : 1;
-          xAxis.ticks(ticksCount);
-        }
-        break;
-      default: {
-        xAlignmentText = _.capitalize(getKeyByAlignment(alignmentConfig)) + 's';
-
-        let ticksCount = Math.floor(plotBoxRef.current.width / 90);
-        ticksCount = ticksCount > 1 ? ticksCount - 1 : 1;
-        xAxis.ticks(ticksCount);
+    const domain = scale.domain();
+    const first = domain[0] as number;
+    const last = domain[domain.length - 1] as number;
+    const distance = Math.ceil((last - first) / (ticksCount - 1));
+    const tickValues: number[] = [];
+    for (let i = 0; i < ticksCount; i++) {
+      const lastRounded = Math.floor(last);
+      const current = Math.floor(first + i * distance);
+      if (i === ticksCount - 1 && tickValues.indexOf(lastRounded) === -1) {
+        tickValues.push(lastRounded);
+      } else if (current < last) {
+        tickValues.push(current);
       }
     }
 
-    return { xAlignmentText, xAxis };
+    xAxis.tickValues(tickValues);
+
+    return {
+      xAxis,
+      xAxisTitle: _.capitalize(getKeyByAlignment(alignmentConfig)) + 's',
+    };
   }
 
-  function getFormattedYAxis(yScale: d3.AxisScale<d3.AxisDomain>) {
-    const yAxis = d3.axisLeft(yScale);
-    let ticksCount = Math.floor(plotBoxRef.current.height / 20);
-    ticksCount = ticksCount > 3 ? (ticksCount < 10 ? ticksCount : 10) : 3;
-    yAxis.ticks(ticksCount);
-    yAxis.tickSize(-width + (margin.left + margin.right)).tickSizeOuter(0);
+  function formatByRelativeTime(args: IFormatAxis) {
+    let { xAxis, ticksCount, tickConfig, tickValues } = formatXAxisByDefault({
+      ...args,
+      tickAdditionalConfig: {
+        distance: 120,
+      },
+    });
+
+    const { scale } = args;
+
+    const sec = 1;
+    const minute = 60 * sec;
+    const hour = 60 * minute;
+    const day = 24 * hour;
+    const week = 7 * day;
+
+    const domain = scale.domain();
+    const first = domain[0] as number;
+    const last = domain[domain.length - 1] as number;
+
+    const diff = Math.ceil((last - first) / 1000);
+    let formatUnit: string;
+    if (diff / week > 4) {
+      formatUnit = 'w';
+    } else if (diff / day > 3) {
+      formatUnit = 'd';
+    } else if (diff / hour > 3) {
+      formatUnit = 'h';
+    } else if (diff / minute > 4) {
+      formatUnit = 'm';
+    } else if (diff / sec > 4) {
+      formatUnit = 's';
+    } else {
+      formatUnit = 'ms';
+    }
+
+    humanizerConfigRef.current = {
+      units: [formatUnit],
+      maxDecimalPoints: 4,
+    };
+
+    if (axesScaleType.xAxis === ScaleEnum.Log) {
+      xAxis.tickValues(tickValues).tickFormat((d, i) =>
+        _.truncate(
+          shortEnglishHumanizer(d as number, humanizerConfigRef.current),
+          {
+            length: tickConfig.maxLength,
+          },
+        ),
+      );
+    } else {
+      xAxis.ticks(ticksCount).tickFormat((d, i) =>
+        _.truncate(
+          shortEnglishHumanizer(d as number, humanizerConfigRef.current),
+          {
+            length: tickConfig.maxLength,
+          },
+        ),
+      );
+    }
+
+    return {
+      xAxis,
+      xAxisTitle: _.capitalize(getKeyByAlignment(alignmentConfig)),
+    };
+  }
+
+  function formatByAbsoluteTime(args: IFormatAxis) {
+    const { xAxis, ticksCount, tickConfig } = formatXAxisByDefault({
+      ...args,
+      tickAdditionalConfig: {
+        distance: 180,
+        maxLength: 20,
+      },
+    });
+
+    const { scale } = args;
+
+    const domain = scale.domain();
+    const first = domain[0] as number;
+    const last = domain[domain.length - 1] as number;
+    const distance = Math.ceil((last - first) / (ticksCount - 1));
+    const tickValues: number[] = [];
+    for (let i = 0; i < ticksCount; i++) {
+      const lastRounded = Math.ceil(last);
+      const current = Math.floor(first + i * distance);
+      if (i === ticksCount - 1 && tickValues.indexOf(lastRounded) === -1) {
+        tickValues.push(lastRounded);
+      } else if (current < last) {
+        tickValues.push(current);
+      }
+    }
+
+    xAxis
+      .ticks(ticksCount)
+      .tickValues(tickValues)
+      .tickFormat((d, i) =>
+        _.truncate(moment(+d).format(DATE_CHART_TICK), {
+          length: tickConfig.maxLength,
+        }),
+      );
+
+    return {
+      xAxis,
+      xAxisTitle: _.capitalize(getKeyByAlignment(alignmentConfig)),
+    };
+  }
+
+  function formatByCustomMetric(args: IFormatAxis) {
+    const { xAxis } = formatXAxisByDefault(args);
+    return {
+      xAxis,
+      xAxisTitle: _.capitalize(getKeyByAlignment(alignmentConfig)),
+    };
+  }
+
+  function getFormattedXAxis(scale: d3.AxisScale<d3.AxisDomain>) {
+    const formatters: { [key: string]: Function } = {
+      [AlignmentOptionsEnum.STEP]: formatByStep,
+      [AlignmentOptionsEnum.EPOCH]: formatByEpoch,
+      [AlignmentOptionsEnum.RELATIVE_TIME]: formatByRelativeTime,
+      [AlignmentOptionsEnum.ABSOLUTE_TIME]: formatByAbsoluteTime,
+      [AlignmentOptionsEnum.CUSTOM_METRIC]: formatByCustomMetric,
+      default: formatXAxisByDefault,
+    };
+    const formatter = formatters[alignmentConfig?.type || 'default'];
+    return formatter({
+      scale,
+      drawTickLines: {
+        ...drawBgTickLines,
+        tickSize: -height + (margin.top + margin.bottom),
+      },
+      plotBoxRef,
+      scaleType: axesScaleType,
+    });
+  }
+
+  function getFormattedYAxis(scale: d3.AxisScale<d3.AxisDomain>) {
+    const { yAxis } = formatYAxisByDefault({
+      scale,
+      drawTickLines: {
+        ...drawBgTickLines,
+        tickSize: -width + (margin.left + margin.right),
+      },
+      plotBoxRef,
+      scaleType: axesScaleType,
+    });
     return yAxis;
   }
 
-  const yAxis = getFormattedYAxis(yScale);
+  function drawYAxis(scale: IAxisScale): void {
+    axesNodeRef.current?.select('.yAxis')?.remove();
 
-  const { xAlignmentText, xAxis } = getFormattedXAxis(xScale);
+    const yAxis = getFormattedYAxis(scale);
+    const tickFontSize = 10;
 
-  axesRef.current.xAxis = axesNodeRef.current
-    ?.append('g')
-    .attr('class', 'xAxis')
-    .attr('stroke-width', 0.4)
-    .attr('transform', `translate(0, ${plotBoxRef.current.height})`)
-    .call(xAxis);
+    axesRef.current.yAxis = axesNodeRef.current
+      ?.append('g')
+      .attr('class', 'yAxis')
+      .attr('stroke-width', 0.2)
+      .attr('color', '#414b6d')
+      .attr('fill', 'none')
+      .call(yAxis)
+      .attr('font-size', tickFontSize);
 
-  axesRef.current.yAxis = axesNodeRef.current
-    ?.append('g')
-    .attr('class', 'yAxis')
-    .attr('stroke-width', 0.2)
-    .attr('color', '#8E9BAE')
-    .attr('fill', 'none')
-    .call(yAxis);
+    axesRef.current.yAxis
+      .select('.domain')
+      .attr('stroke', '#414b6d')
+      .attr('stroke-width', 0.4);
 
-  svgNodeRef.current
-    .append('text')
-    .attr('transform', `translate(${width - 20},${height - margin.bottom - 5})`)
-    .attr('text-anchor', 'end')
-    .attr('alignment-baseline', 'ideographic')
-    .style('font-size', '0.7em')
-    .style('fill', '#586069') // var(--grey)
-    .text(xAlignmentText)
-    .lower();
+    const ticks = axesRef.current.yAxis.selectAll('.tick');
+
+    ticks?.append('svg:title').text((d: string | number) => d);
+
+    ticks?.select('line').attr('stroke', '#8E9BAE').attr('x1', '-6');
+
+    if (!drawBgTickLines.y) {
+      ticks
+        ?.select('line')
+        .attr('stroke', '#414b6d')
+        .attr('stroke-width', 0.4)
+        .attr('y2', '0.5');
+    }
+  }
+
+  function drawXAxis(scale: IAxisScale): void {
+    axesNodeRef.current?.select('.xAxis')?.remove();
+
+    const { xAxisTitle, xAxis } = getFormattedXAxis(scale);
+    const tickFontSize = 10;
+
+    axesRef.current.xAxis = axesNodeRef.current
+      ?.append('g')
+      .attr('class', 'xAxis')
+      .attr('stroke-width', 0.2)
+      .attr('color', '#414b6d')
+      .attr('fill', 'none')
+      .attr('transform', `translate(0, ${plotBoxRef.current.height})`)
+      .call(xAxis)
+      .attr('font-size', tickFontSize);
+
+    axesRef.current.xAxis
+      .select('.domain')
+      .attr('stroke', '#414b6d')
+      .attr('stroke-width', 0.4);
+
+    const ticks = axesRef.current.xAxis.selectAll('.tick');
+
+    ticks?.append('svg:title').text((d: number) =>
+      formatValueByAlignment({
+        xAxisTickValue: d ?? null,
+        type: alignmentConfig?.type,
+      }),
+    );
+
+    // TODO need to check necessity
+    // if (
+    //   axesScaleType.xAxis === ScaleEnum.Log &&
+    //   alignmentConfig?.type === AlignmentOptionsEnum.ABSOLUTE_TIME
+    // ) {
+    //   ticks
+    //     ?.select('text')
+    //     .attr('transform', 'rotate(-12)')
+    //     .attr('y', '12')
+    //     .attr('x', '-20');
+    // }
+
+    ticks?.select('line').attr('stroke', '#8E9BAE').attr('y1', '6');
+
+    if (!drawBgTickLines.x) {
+      ticks
+        ?.select('line')
+        .attr('stroke', '#414b6d')
+        .attr('stroke-width', 0.4)
+        .attr('y2', '0.5');
+    }
+
+    axesRef.current.xAxis
+      .append('text')
+      .attr(
+        'transform',
+        `translate(${width - margin.left - margin.right - 20},-5)`,
+      )
+      .attr('text-anchor', 'end')
+      .attr('alignment-baseline', 'ideographic')
+      .style('font-size', '1.1em')
+      .style('fill', '#586069')
+      .text(xAxisTitle);
+  }
+
+  drawYAxis(yScale);
+  drawXAxis(xScale);
 
   axesRef.current.updateXAxis = function (
     xScaleUpdate: d3.AxisScale<d3.AxisDomain>,
   ) {
-    const { xAxis } = getFormattedXAxis(xScaleUpdate);
-    axesRef.current.xAxis.call(xAxis);
+    drawXAxis(xScaleUpdate);
   };
 
   axesRef.current.updateYAxis = function (
     yScaleUpdate: d3.AxisScale<d3.AxisDomain>,
   ) {
-    const yAxis = getFormattedYAxis(yScaleUpdate);
-    axesRef.current.yAxis.call(yAxis);
+    drawYAxis(yScaleUpdate);
   };
 }
 

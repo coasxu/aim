@@ -1,8 +1,8 @@
-from tests.base import ApiTestBase
+from tests.base import PrefilledDataApiTestBase
 from tests.utils import fill_up_test_data, remove_test_data
 
 
-class StructuredApiTestBase(ApiTestBase):
+class StructuredApiTestBase(PrefilledDataApiTestBase):
     def setUp(self) -> None:
         super().setUp()
         fill_up_test_data()
@@ -10,7 +10,7 @@ class StructuredApiTestBase(ApiTestBase):
             for idx, run in enumerate(self.repo.iter_runs()):
                 exp_name = 'Experiment 1' if idx < 5 else 'Experiment 2'
 
-                run.name = f'Run number {idx+1}'
+                run.name = f'Run number {idx + 1}'
                 run.experiment = exp_name
                 if idx < 3:
                     run.add_tag('first runs')
@@ -45,26 +45,23 @@ class TestStructuredRunApi(StructuredApiTestBase):
     def test_add_remove_tag_api(self):
         matching_runs = self.repo.structured_db.search_runs('Run number 5')
         run = next(iter(matching_runs))
-        tags = [tag for tag in run.tags]
-        self.assertEqual(2, len(run.tags))
+        tags = [tag for tag in run.tags_obj]
+        self.assertEqual(2, len(run.tags_obj))
 
-        tag_names = [t.name for t in run.tags]
-        self.assertListEqual(['first runs', 'last runs'], tag_names)
+        self.assertListEqual(['first runs', 'last runs'], run.tags)
 
         client = self.client
         # remove tag # 1
         resp = client.delete(f'/api/runs/{run.hash}/tags/{tags[0].uuid}')
         self.assertEqual(200, resp.status_code)
         self.assertEqual(1, len(run.tags))
-        tag_names = [t.name for t in run.tags]
-        self.assertListEqual(['last runs'], tag_names)
+        self.assertListEqual(['last runs'], run.tags)
 
         # add new tag
         resp = client.post(f'/api/runs/{run.hash}/tags/new', json={'tag_name': 'new tag'})
         self.assertEqual(200, resp.status_code)
         self.assertEqual(2, len(run.tags))
-        tag_names = [t.name for t in run.tags]
-        self.assertListEqual(['last runs', 'new tag'], tag_names)
+        self.assertListEqual(['last runs', 'new tag'], run.tags)
 
     def test_update_run_name_description(self):
         matching_runs = self.repo.structured_db.search_runs('Run number 3')
@@ -232,6 +229,26 @@ class TestExperimentsApi(StructuredApiTestBase):
         expected_run_names = {f'Run number {i}' for i in range(6, 11)}
         self.assertSetEqual(expected_run_names, run_names)
 
+    def test_get_experiment_runs_paginated_api(self):
+        client = self.client
+        response = client.get('/api/experiments/search', params={'q': 'Experiment 2'})
+        data = response.json()
+
+        exp_uuid = data[0]['id']
+        response = client.get(f'/api/experiments/{exp_uuid}/runs/', params={'limit': 2})
+        self.assertEqual(200, response.status_code)
+        data = response.json()
+        self.assertEqual(2, len(data['runs']))
+
+        offset = data['runs'][-1]['run_id']
+
+        response = client.get(f'/api/experiments/{exp_uuid}/runs/', params={'limit': 5, 'offset': offset})
+        self.assertEqual(200, response.status_code)
+        data = response.json()
+        run_ids = {run['run_id'] for run in data['runs']}
+        self.assertNotIn(offset, run_ids)
+        self.assertEqual(3, len(data['runs']))
+
     def test_archive_experiment_with_runs(self):
         client = self.client
         response = client.get('/api/experiments/search', params={'q': 'Experiment 2'})
@@ -241,5 +258,5 @@ class TestExperimentsApi(StructuredApiTestBase):
 
         response = client.put(f'/api/experiments/{exp_uuid}/', json={'archived': True})
         self.assertEqual(response.status_code, 400)
-        expected_text = '{{"detail":"Cannot archive experiment \'{}\'. Experiment has associated runs."}}'.format(exp_uuid)
-        self.assertEqual(response.text, expected_text)
+        error_msg = f'Cannot archive experiment \'{exp_uuid}\'. Experiment has associated runs.'
+        self.assertEqual(response.json()['message'], error_msg)

@@ -1,8 +1,10 @@
+import { ANALYTICS_EVENT_KEYS } from 'config/analytics/analyticsKeysMap';
+
 import * as analytics from 'services/analytics';
 
 import { IModel, State } from 'types/services/models/model';
 
-import getQueryStringFromSelect from './getQuertStringFromSelect';
+import getQueryStringFromSelect from './getQueryStringFromSelect';
 
 export default function toggleSelectAdvancedMode<M extends State>({
   model,
@@ -11,28 +13,29 @@ export default function toggleSelectAdvancedMode<M extends State>({
   model: IModel<M>;
   appName: string;
 }): void {
-  const configData = model.getState()?.config;
-  if (configData?.select) {
+  const { config, selectFormData } = model.getState();
+  if (config) {
     let query =
-      configData.select.advancedQuery ||
-      getQueryStringFromSelect(configData?.select);
+      config.select.advancedQuery ||
+      getQueryStringFromSelect(config?.select, selectFormData.error);
     if (query === '()') {
       query = '';
     }
     const newConfig = {
-      ...configData,
+      ...config,
       select: {
-        ...configData.select,
+        ...config.select,
         advancedQuery: query,
-        advancedMode: !configData.select.advancedMode,
+        advancedMode: !config.select.advancedMode,
       },
     };
 
     model.setState({ config: newConfig });
   }
   analytics.trackEvent(
-    `[${appName}Explorer] Turn ${
-      !configData?.select.advancedMode ? 'on' : 'off'
-    } the advanced mode of select form`,
+    // @ts-ignore
+    `${ANALYTICS_EVENT_KEYS[appName].useAdvancedSearch} ${
+      !config?.select.advancedMode ? 'on' : 'off'
+    }`,
   );
 }

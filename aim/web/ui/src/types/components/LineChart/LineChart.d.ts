@@ -1,12 +1,14 @@
 import { HighlightEnum } from 'components/HighlightModesPopover/HighlightModesPopover';
 
+import { ResizeModeEnum } from 'config/enums/tableEnums';
+
 import {
   IActivePoint,
   INearestCircle,
-  ISyncHoverStateParams,
+  ISyncHoverStateArgs,
 } from 'types/utils/d3/drawHoverAttributes';
 import { IAxesScaleState } from 'types/components/AxesScalePopover/AxesScalePopover';
-import { IGetAxisScale } from 'types/utils/d3/getAxisScale';
+import { IAxisScale } from 'types/utils/d3/getAxisScale';
 import {
   IAggregatedData,
   IAggregationConfig,
@@ -15,66 +17,68 @@ import {
   IChartZoom,
   IFocusedState,
 } from 'types/services/models/metrics/metricsAppModel';
+import { IRun } from 'types/services/models/metrics/runModel';
 
 import { CurveEnum } from 'utils/d3';
 
+import { IChartPanelProps } from '../ChartPanel/ChartPanel';
+
 export interface ILine {
   key: string;
-  groupKey?: string;
   data: {
     xValues: number[];
     yValues: number[];
   };
-  color: string;
-  dasharray: string;
-  selectors: string[];
+  color?: string;
+  dasharray?: string;
+  selectors?: string[];
+  groupKey?: string;
+  run?: IRun;
 }
 
 export interface ILineChartProps {
   index: number;
-  data: ILine[];
+  data: IChartPanelProps['data'];
+  nameKey?: string;
   aggregatedData?: IAggregatedData[];
   alignmentConfig?: IAlignmentConfig;
-  displayOutliers: boolean;
+  ignoreOutliers: boolean;
   axesScaleType: IAxesScaleState;
   highlightMode: HighlightEnum;
   curveInterpolation: CurveEnum;
-  syncHoverState: (params: ISyncHoverStateParams) => void;
+  syncHoverState?: (args: ISyncHoverStateArgs) => void;
   aggregationConfig?: IAggregationConfig;
   chartTitle?: IChartTitle;
   zoom?: IChartZoom;
   onZoomChange?: (zoom: Partial<IChartZoom>) => void;
+  readOnly?: boolean;
+  resizeMode?: ResizeModeEnum;
 }
 
-export interface IUpdateFocusedChartProps {
+export interface IUpdateFocusedChartArgs {
   mousePos?: [number, number];
   focusedStateActive?: boolean;
   force?: boolean;
-}
-
-export interface IBrushRef {
-  updateScales?: (xScale: IGetAxisScale, yScale: IGetAxisScale) => void;
-  xScale?: IGetAxisScale;
-  yScale?: IGetAxisScale;
-  handleZoomIn?: (xValues: [number, number], yValues: [number, number]) => void;
 }
 
 export interface IAttributesRef {
   focusedState?: IFocusedState;
   activePoint?: IActivePoint;
   nearestCircles?: INearestCircle[];
-  xStep?: number;
+  groupKey?: string;
+  currentXValue?: number | string;
+  scaledValues?: { x: number; y: number }[][];
   lineKey?: string;
   dataSelector?: string;
-  xScale?: IGetAxisScale;
-  yScale?: IGetAxisScale;
-  updateScales?: (xScale: IGetAxisScale, yScale: IGetAxisScale) => void;
+  xScale?: IAxisScale;
+  yScale?: IAxisScale;
+  updateScales?: (xScale: IAxisScale, yScale: IAxisScale) => void;
   setActiveLineAndCircle?: (
     lineKey: string,
     focusedStateActive: boolean = false,
     force: boolean = false,
   ) => void;
   updateHoverAttributes?: (xValue: number, dataSelector?: string) => void;
-  updateFocusedChart?: (params?: IUpdateFocusedChartProps) => void;
+  updateFocusedChart?: (args?: IUpdateFocusedChartArgs) => void;
   clearHoverAttributes?: () => void;
 }

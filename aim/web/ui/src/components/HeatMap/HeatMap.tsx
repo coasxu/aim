@@ -4,6 +4,9 @@ import { useHistory } from 'react-router-dom';
 import { Tooltip } from '@material-ui/core';
 
 import { Text } from 'components/kit';
+import ErrorBoundary from 'components/ErrorBoundary/ErrorBoundary';
+
+import { ANALYTICS_EVENT_KEYS } from 'config/analytics/analyticsKeysMap';
 
 import * as analytics from 'services/analytics';
 
@@ -55,11 +58,16 @@ function HeatMap({
   }
 
   let lastDay = endDate;
+
   while (lastDay.getDay() !== 0) {
     lastDay = shiftDate(lastDay, 1);
   }
 
-  const diffDays = Math.round(Math.abs((firstDay - lastDay) / oneDay));
+  if (lastDay.getDay() === 0) {
+    lastDay = shiftDate(lastDay, 7);
+  }
+
+  const diffDays = Math.floor(Math.abs((firstDay - lastDay) / oneDay));
 
   const maxVal = Math.max(
     ...data?.map((i: any) => i?.[1]).filter((i: any) => Number.isInteger(i)),
@@ -118,7 +126,6 @@ function HeatMap({
   function getScale(value: number) {
     return Math.ceil((value / maxVal) * scaleRange);
   }
-
   function renderCell(index: number) {
     const dataItem = getItem(index);
     const date = indexToDate(index);
@@ -130,6 +137,7 @@ function HeatMap({
 
     function onClickeCell(e: React.MouseEvent) {
       e.stopPropagation();
+      onCellClick();
       if (scale) {
         const startDate = date.getTime();
         const endDate = new Date(
@@ -146,33 +154,35 @@ function HeatMap({
             startDate / 1000
           } and run.creation_time <= ${endDate / 1000}`,
         });
-        analytics.trackEvent('[Home][HeatMap] Activity cell click');
-        history.push(`/runs?search=${search}`);
+        analytics.trackEvent(ANALYTICS_EVENT_KEYS.home.activityCellClick);
+        history.push(`/runs?select=${search}`);
       }
     }
 
     return (
-      <div className='CalendarHeatmap__cell__wrapper' key={index}>
-        {+endDate < +indexToDate(index) ? (
-          <div className='CalendarHeatmap__cell CalendarHeatmap__cell--dummy' />
-        ) : (
-          <Tooltip title={tooltip}>
-            <div
-              className={`CalendarHeatmap__cell CalendarHeatmap__cell--scale-${scale}`}
-              onClick={onClickeCell}
-              role='navigation'
-              // className={classNames({
-              //   CalendarHeatmap__cell: true,
-              //   [`CalendarHeatmap__cell--scale-${scale}`]:
-              //     Number.isInteger(scale),
-              // })}
-              // onClick={
-              //   !!onCellClick ? () => onCellClick(dataItem, date, index) : null
-              // }
-            />
-          </Tooltip>
-        )}
-      </div>
+      <ErrorBoundary key={index}>
+        <div className='CalendarHeatmap__cell__wrapper'>
+          {+endDate < +indexToDate(index) ? (
+            <div className='CalendarHeatmap__cell CalendarHeatmap__cell--dummy' />
+          ) : (
+            <Tooltip title={tooltip}>
+              <div
+                className={`CalendarHeatmap__cell CalendarHeatmap__cell--scale-${scale}`}
+                onClick={onClickeCell}
+                role='navigation'
+                // className={classNames({
+                //   CalendarHeatmap__cell: true,
+                //   [`CalendarHeatmap__cell--scale-${scale}`]:
+                //     Number.isInteger(scale),
+                // })}
+                // onClick={
+                //   !!onCellClick ? () => onCellClick(dataItem, date, index) : null
+                // }
+              />
+            </Tooltip>
+          )}
+        </div>
+      </ErrorBoundary>
     );
   }
 
@@ -202,7 +212,9 @@ function HeatMap({
         </div>
       </div>
       <div className='CalendarHeatmap__cell__info'>
-        <Text size={10}>Less</Text>
+        <Text weight={400} size={12}>
+          Less
+        </Text>
         {cellScales.map((scale) => (
           <div
             key={scale}
@@ -215,7 +227,9 @@ function HeatMap({
           </div>
         ))}
 
-        <Text size={10}>More</Text>
+        <Text weight={400} size={12}>
+          More
+        </Text>
       </div>
     </div>
   );

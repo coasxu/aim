@@ -1,9 +1,7 @@
-import os
 import click
-import filelock
 
 from aim.sdk.repo import Repo, RepoStatus
-from aim.sdk.run import Run
+from aim.sdk.index_manager import RepoIndexManager
 from aim.sdk.utils import clean_repo_path
 
 
@@ -12,7 +10,8 @@ from aim.sdk.utils import clean_repo_path
                                                         file_okay=False,
                                                         dir_okay=True,
                                                         writable=True))
-def reindex(repo):
+@click.option('--finalize-only', required=False, is_flag=True, default=False)
+def reindex(repo, finalize_only):
     """
     Process runs left in 'in progress' state.
     """
@@ -21,26 +20,21 @@ def reindex(repo):
     if repo_status != RepoStatus.UPDATED:
         click.echo(f'\'{repo_path}\' is not updated. Cannot run indexing.')
     repo_inst = Repo.from_path(repo_path)
+    index_mng = RepoIndexManager.get_index_manager(repo_inst.path)
+    if finalize_only:
+        if not index_mng.reindex_needed:
+            click.echo('Index is up to date.')
+            return
+        confirmed = click.confirm(f'This command will try to finalize all stalled runs in aim repo located at '
+                                  f'\'{repo_path}\'. Do you want to proceed?')
+        if not confirmed:
+            return
+    else:
+        confirmed = click.confirm(f'This command will try to reindex all runs in aim repo located at '
+                                  f'\'{repo_path}\'. This process might take a while. Do you want to proceed?')
+        if not confirmed:
+            return
 
-    unindexed_runs_dir = os.path.join(repo_inst.path, 'meta', 'progress')
-    runs_to_index = os.listdir(unindexed_runs_dir)
-    if not runs_to_index:
-        click.echo('Index is up to date.')
-        return
-    confirmed = click.confirm(f'This command will try to finalize all pending runs in aim repo located at '
-                              f'\'{repo_path}\'. Do you want to proceed?')
-    if not confirmed:
-        return
-    runs_in_progress = []
-    for run_hash in runs_to_index:
-        try:
-            run = Run(run_hash=run_hash, repo=repo_inst, system_tracking_interval=None)
-        except filelock.Timeout:
-            runs_in_progress.append(run_hash)
-        else:
-            # TODO: [AT] handle lock timeout on index db (retry logic).
-            run.finalize()
-    if runs_in_progress:
-        click.echo('Skipped indexing for the following runs in progress:')
-        for run_hash in runs_in_progress:
-            click.secho(f'\t\'{run_hash}\'', fg='yellow')
+    index_mng.reindex()
+    if not finalize_only:
+        index_mng.run_flushes_and_compactions()

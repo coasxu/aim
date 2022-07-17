@@ -1,8 +1,11 @@
 import React, { memo, useEffect, useState } from 'react';
-import { isNil } from 'lodash-es';
+import _ from 'lodash-es';
 
 import Table from 'components/Table/Table';
 import { Badge, Button, Icon, Text } from 'components/kit';
+import ErrorBoundary from 'components/ErrorBoundary/ErrorBoundary';
+
+import { IllustrationsEnum } from 'config/illustrationConfig/illustrationConfig';
 
 import tagsAppModel from 'services/models/tags/tagsAppModel';
 
@@ -39,7 +42,7 @@ function TagsTable({
         return (
           <div className='TagsTable__runsCell'>
             <span className='TagsTable__runsCell--iconBox'>
-              <Icon name='Runs' />
+              <Icon name='circle-with-dot' />
             </span>
             <Text size={14} color='info'>
               {cellData.count}
@@ -120,28 +123,30 @@ function TagsTable({
   }
 
   useEffect(() => {
-    tableRef.current?.updateData({
-      newData: tagsList.map((tagData: ITagProps, i: number) => ({
-        key: tagData.id,
-        name: { name: tagData.name, color: tagData.color },
-        comment: tagData,
-        runs: { count: tagData.run_count, tagId: tagData.id },
-      })),
-      newColumns: tableColumns,
-    });
+    if (tableRef.current.updateData) {
+      tableRef?.current?.updateData({
+        newData: tagsList.map((tagData: ITagProps, i: number) => ({
+          key: tagData.id,
+          name: { name: tagData.name, color: tagData.color },
+          comment: tagData,
+          runs: { count: tagData.run_count, tagId: tagData.id },
+        })),
+        newColumns: tableColumns,
+      });
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tagsList, onTableRunClick, hoveredRowIndex]);
 
   return (
-    <div className='Tags__TagList__tagListBox'>
-      {!isTagsDataLoading && !isNil(tagsList) && (
-        <div className='Tags__TagList__tagListBox__titleBox'>
-          <Text component='h4' size={14} weight={600} tint={100}>
-            {tagsList.length} {tagsList.length > 1 ? 'Tags' : 'Tag'}
-          </Text>
-        </div>
-      )}
-      <div className='TagsTable'>
+    <ErrorBoundary>
+      <div className='Tags__TagList__tagListBox'>
+        {!isTagsDataLoading && !_.isNil(tagsList) && (
+          <div className='Tags__TagList__tagListBox__titleBox'>
+            <Text component='h4' size={14} weight={600} tint={100}>
+              {tagsList.length} {tagsList.length > 1 ? 'Tags' : 'Tag'}
+            </Text>
+          </div>
+        )}
         <Table
           ref={tableRef}
           fixed={false}
@@ -153,10 +158,16 @@ function TagsTable({
           headerHeight={32}
           onRowHover={(rowIndex) => setHoveredRowIndex(rowIndex)}
           onRowClick={(rowIndex) => onTableRunClick(rowIndex || '')}
-          emptyText={hasSearchValue ? 'No tags found' : 'No tags'}
+          illustrationConfig={{
+            type: hasSearchValue
+              ? IllustrationsEnum.EmptySearch
+              : IllustrationsEnum.ExploreData,
+            page: 'tags',
+          }}
+          height='calc(100% - 39px)'
         />
       </div>
-    </div>
+    </ErrorBoundary>
   );
 }
 

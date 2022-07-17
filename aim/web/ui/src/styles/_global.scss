@@ -4,9 +4,14 @@
 .ScrollBar__hidden {
   --ms-overflow-style: none;
   --scrollbar-width: none;
+  scrollbar-width: none;
   &::-webkit-scrollbar {
     display: none;
   }
+}
+
+.SelectForm__Popper {
+  z-index: 6;
 }
 
 .container {

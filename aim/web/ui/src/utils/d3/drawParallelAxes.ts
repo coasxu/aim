@@ -6,14 +6,12 @@ import {
   YScaleType,
 } from 'types/utils/d3/drawParallelAxes';
 
-import {
-  getAxisScale,
-  ScaleEnum,
-  gradientStartColor,
-  gradientEndColor,
-} from 'utils/d3';
+import { getAxisScale, ScaleEnum } from 'utils/d3';
 import { formatSystemMetricName } from 'utils/formatSystemMetricName';
 import { isSystemMetric } from 'utils/isSystemMetric';
+
+import getColorFromRange from './getColorFromRange';
+import { formatYAxisByDefault } from './tickFormatting';
 
 function drawParallelAxes({
   axesNodeRef,
@@ -37,10 +35,18 @@ function drawParallelAxes({
 
   const yScale: YScaleType = {};
 
-  function getFormattedYAxis(yScale: d3.AxisScale<d3.AxisDomain>) {
-    const yAxis = d3.axisLeft(yScale);
-    const ticksCount = Math.floor(plotBoxRef.current.height / 20);
-    yAxis.ticks(ticksCount > 3 ? (ticksCount < 20 ? ticksCount : 20) : 3);
+  function getFormattedYAxis(scale: d3.AxisScale<d3.AxisDomain>) {
+    const { yAxis } = formatYAxisByDefault({
+      scale,
+      tickAdditionalConfig: {
+        distance: 30,
+      },
+      drawTickLines: {
+        tickSize: -width + (margin.left + margin.right),
+      },
+      plotBoxRef,
+      scaleType: ScaleEnum.Point,
+    });
     return yAxis;
   }
 
@@ -69,7 +75,7 @@ function drawParallelAxes({
       .call(yAxis);
 
     axes
-      .selectAll('.tick')
+      ?.selectAll('.tick')
       .append('foreignObject')
       .attr('x', -tickWidth - 10)
       .attr('y', -8)
@@ -84,7 +90,7 @@ function drawParallelAxes({
       i === first || i === last ? titleWidth : titleWidth * 2;
 
     axes
-      .append('foreignObject')
+      ?.append('foreignObject')
       .attr('width', dimensionTitleWidth)
       .attr('height', 20)
       .attr(
@@ -124,10 +130,7 @@ function drawParallelAxes({
     attributesRef.current.yScale[keysOfDimensions[keysOfDimensions.length - 1]];
   const range = lastYScale?.range();
   if (range) {
-    attributesRef.current.yColorIndicatorScale = d3
-      .scaleSequential()
-      .domain(range)
-      .interpolator(d3.interpolateRgb(gradientStartColor, gradientEndColor));
+    attributesRef.current.yColorIndicatorScale = getColorFromRange(range);
   }
 }
 

@@ -1,9 +1,9 @@
-import { IMetricTrace, IRun, ITraceData } from './runModel';
+import { IMetricTrace, IRun } from './runModel';
 
 export interface IMetric {
   run: IRun<IMetricTrace>;
   key: string;
-  metric_name: string;
+  name: string;
   context: { [key: string]: unknown };
   data: {
     values: Float64Array;
@@ -15,7 +15,7 @@ export interface IMetric {
   };
   color: string;
   dasharray: string;
-  x_axis_iters?: ITraceData;
-  x_axis_values?: ITraceData;
+  x_axis_iters?: Float64Array;
+  x_axis_values?: Float64Array;
   isHidden: boolean;
 }

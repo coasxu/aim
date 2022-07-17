@@ -1,17 +1,17 @@
-import { IParamsAppConfig } from 'types/services/models/params/paramsAppModel';
+import { ISelectOption } from 'services/models/explorer/createAppModel';
+
+import { ISyntaxErrorDetails } from 'types/components/NotificationContainer/NotificationContainer';
+import { IAppModelConfig } from 'types/services/models/explorer/createAppModel';
 
 export interface ISelectFormProps {
-  onParamsSelectChange: IParamsAppConfig['onParamsSelectChange'];
-  selectedParamsData: IParamsAppConfig['select'];
-  onSelectRunQueryChange: (query: string) => void;
-}
-export interface ISelectParamsOption {
-  label: string;
-  group: string;
-  color: string;
-  type: string;
-  value?: {
-    param_name: string;
-    context: object | null | any;
+  selectFormData: {
+    options: ISelectOption[];
+    suggestions: Record<any, any>;
+    error: ISyntaxErrorDetails;
   };
+  requestIsPending: boolean;
+  isDisabled?: boolean;
+  selectedParamsData: IAppModelConfig['select'];
+  onParamsSelectChange: (options: ISelectOption[]) => void;
+  onSelectRunQueryChange: (query: string) => void;
 }

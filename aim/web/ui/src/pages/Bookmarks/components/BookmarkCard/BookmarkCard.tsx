@@ -1,17 +1,30 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
 
+import { Tooltip } from '@material-ui/core';
+
 import ConfirmModal from 'components/ConfirmModal/ConfirmModal';
 import CodeBlock from 'components/CodeBlock/CodeBlock';
 import { Button, Icon, Badge, Text } from 'components/kit';
+import { IconName } from 'components/kit/Icon';
+import ErrorBoundary from 'components/ErrorBoundary/ErrorBoundary';
 
-import COLORS from 'config/colors/colors';
+import { ANALYTICS_EVENT_KEYS } from 'config/analytics/analyticsKeysMap';
 
 import * as analytics from 'services/analytics';
 
 import { IBookmarkCardProps } from 'types/pages/bookmarks/components/BookmarkCard';
 
 import './BookmarkCard.scss';
+
+const BookmarkIconType: {
+  [key: string]: { name: IconName; tooltipTitle: string };
+} = {
+  images: { name: 'images', tooltipTitle: 'Images Explorer' },
+  params: { name: 'params', tooltipTitle: 'Params Explorer' },
+  metrics: { name: 'metrics', tooltipTitle: 'Metrics Explorer' },
+  scatters: { name: 'scatterplot', tooltipTitle: 'Scatters Explorer' },
+};
 
 function BookmarkCard({
   name,
@@ -36,78 +49,101 @@ function BookmarkCard({
   }
 
   const tags: { label: string }[] = React.useMemo(() => {
-    return select[type]?.map((val: any) => ({ label: val.label })) || [];
+    return select?.options?.map((val: any) => ({ label: val.label })) || [];
   }, [select]);
 
   return (
-    <div className='BookmarkCard__container'>
-      <div className='BookmarkCard__top'>
-        <div className='BookmarkCard__title__section'>
-          <Text size={18} weight={600} component='h3' tint={100}>
-            {name}
-          </Text>
-          <div className='flex fac fjc'>
-            <NavLink to={`/${type}/${app_id}`}>
-              <Button
-                variant='outlined'
-                onClick={() =>
-                  analytics.trackEvent('[Bookmarks] View bookmark')
-                }
+    <ErrorBoundary>
+      <div className='BookmarkCard'>
+        <div className='BookmarkCard__top'>
+          <div className='BookmarkCard__titleBox__section'>
+            <div className='BookmarkCard__titleBox__section__container'>
+              <Tooltip
+                title={BookmarkIconType[type].tooltipTitle}
+                placement='top'
               >
-                View Bookmark
-              </Button>
-            </NavLink>
-            <span className='BookmarkCard__delete'>
-              <Button color='secondary' withOnlyIcon onClick={handleOpenModal}>
-                <Icon name='delete' />
-              </Button>
-            </span>
+                <div className='BookmarkCard__titleBox__section__container__iconBox'>
+                  <Icon name={BookmarkIconType[type].name} fontSize={16} />
+                </div>
+              </Tooltip>
+
+              <Text
+                size={18}
+                weight={600}
+                component='h3'
+                tint={100}
+                className='BookmarkCard__titleBox__section__container__title'
+              >
+                {name}
+              </Text>
+            </div>
+
+            <div className='BookmarkCard__actionButtonsBox'>
+              <NavLink to={`/${type}/${app_id}`}>
+                <Button
+                  variant='outlined'
+                  onClick={() =>
+                    analytics.trackEvent(ANALYTICS_EVENT_KEYS.bookmarks.view)
+                  }
+                >
+                  View Bookmark
+                </Button>
+              </NavLink>
+              <span className='BookmarkCard__delete'>
+                <Button
+                  color='secondary'
+                  withOnlyIcon
+                  onClick={handleOpenModal}
+                >
+                  <Icon name='delete' />
+                </Button>
+              </span>
+            </div>
           </div>
+          <Text
+            size={12}
+            weight={400}
+            tint={100}
+            component='p'
+            className='BookmarkCard__description'
+          >
+            {description}
+          </Text>
         </div>
-        <Text size={12} weight={400} tint={100} component='p'>
-          {description}
-        </Text>
+        {tags.length && !select.advancedMode ? (
+          <div className='BookmarkCard__selected__metrics ScrollBar__hidden'>
+            {tags.map((tag, index) => {
+              return (
+                <Badge
+                  size='large'
+                  key={`${tag.label}-${index}`}
+                  label={tag.label}
+                />
+              );
+            })}
+          </div>
+        ) : null}
+        {select.query || select.advancedQuery ? (
+          <div className='BookmarkCard__bottom'>
+            <div className='BookmarkCard__run__expression'>
+              <CodeBlock
+                code={select.advancedMode ? select.advancedQuery : select.query}
+              />
+            </div>
+          </div>
+        ) : null}
+        <ConfirmModal
+          open={openModal}
+          onCancel={handleCloseModal}
+          onSubmit={handleBookmarkDelete}
+          text='Are you sure you want to delete this bookmark?'
+          icon={<Icon name='delete' />}
+          title='Delete bookmark'
+          statusType='error'
+          confirmBtnText='Delete'
+        />
       </div>
-      {select.advancedMode ? (
-        <div className='BookmarkCard__bottom'>
-          <div className='BookmarkCard__run__expression'>
-            <CodeBlock code={select.advancedQuery} />
-          </div>
-        </div>
-      ) : (
-        <>
-          {select.query && (
-            <div className='BookmarkCard__bottom'>
-              <div className='BookmarkCard__run__expression'>
-                <CodeBlock code={select.query} />
-              </div>
-            </div>
-          )}
-          {tags.length > 0 && (
-            <div className='BookmarkCard__selected__metrics ScrollBar__hidden'>
-              {tags.map((tag, index) => {
-                return (
-                  <Badge
-                    size='large'
-                    key={tag.label}
-                    label={tag.label}
-                    color={COLORS[0][index % COLORS[0].length]}
-                  />
-                );
-              })}
-            </div>
-          )}
-        </>
-      )}
-      <ConfirmModal
-        open={openModal}
-        onCancel={handleCloseModal}
-        onSubmit={handleBookmarkDelete}
-        text='Are you sure you want to delete this bookmark?'
-        icon={<Icon fontSize={28} color='#1c2852' name='delete' />}
-        title='Are you sure?'
-      />
-    </div>
+    </ErrorBoundary>
   );
 }
 

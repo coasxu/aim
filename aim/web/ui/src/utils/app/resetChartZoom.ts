@@ -1,22 +1,24 @@
-import * as analytics from 'services/analytics';
-
-import { IMetricAppConfig } from 'types/services/models/metrics/metricsAppModel';
+import {
+  IAppModelConfig,
+  ILineChartConfig,
+} from 'types/services/models/explorer/createAppModel';
 
 export default function resetChartZoom({
   configData,
   appName,
 }: {
-  configData: IMetricAppConfig | any;
+  configData: IAppModelConfig;
   appName: string;
-}): IMetricAppConfig | any {
-  configData.chart = {
-    ...configData.chart,
-    zoom: {
-      ...configData.chart.zoom,
-      active: false,
-      history: [],
-    },
-  };
-  analytics.trackEvent(`[${appName}Explorer][Chart] Reset zoom`);
+}): IAppModelConfig {
+  if (configData.chart) {
+    configData.chart = {
+      ...configData.chart,
+      zoom: {
+        ...(configData.chart as ILineChartConfig).zoom,
+        active: false,
+        history: [],
+      },
+    };
+  }
   return configData;
 }

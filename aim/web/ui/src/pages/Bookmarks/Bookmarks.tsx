@@ -2,7 +2,12 @@ import React from 'react';
 
 import AppBar from 'components/AppBar/AppBar';
 import BusyLoaderWrapper from 'components/BusyLoaderWrapper/BusyLoaderWrapper';
-import EmptyComponent from 'components/EmptyComponent/EmptyComponent';
+import IllustrationBlock from 'components/IllustrationBlock/IllustrationBlock';
+import ErrorBoundary from 'components/ErrorBoundary/ErrorBoundary';
+import NotificationContainer from 'components/NotificationContainer/NotificationContainer';
+
+import pageTitlesEnum from 'config/pageTitles/pageTitles';
+import { IllustrationsEnum } from 'config/illustrationConfig/illustrationConfig';
 
 import { IBookmarksProps } from 'types/pages/bookmarks/Bookmarks';
 
@@ -14,26 +19,44 @@ function Bookmarks({
   data,
   onBookmarkDelete,
   isLoading,
+  notifyData,
+  onNotificationDelete,
 }: IBookmarksProps): React.FunctionComponentElement<React.ReactNode> {
   return (
-    <section className='Bookmarks'>
-      <AppBar title='Bookmarks' />
-      <div className='Bookmarks__list container'>
-        <BusyLoaderWrapper isLoading={isLoading}>
-          {data?.length > 0 &&
-            data.map((bookmark) => (
-              <BookmarkCard
-                key={bookmark.id}
-                {...bookmark}
-                onBookmarkDelete={onBookmarkDelete}
-              />
-            ))}
-        </BusyLoaderWrapper>
-        {!isLoading && data?.length === 0 ? (
-          <EmptyComponent size='big' content={'No Bookmarks'} />
-        ) : null}
-      </div>
-    </section>
+    <ErrorBoundary>
+      <section className='Bookmarks'>
+        <AppBar
+          title={pageTitlesEnum.BOOKMARKS}
+          className='Bookmarks__appBar'
+        />
+        <div className='Bookmarks__list container'>
+          <BusyLoaderWrapper isLoading={isLoading} height={'100%'}>
+            {data?.length > 0 &&
+              data.map((bookmark) => (
+                <BookmarkCard
+                  key={bookmark.id}
+                  {...bookmark}
+                  onBookmarkDelete={onBookmarkDelete}
+                />
+              ))}
+          </BusyLoaderWrapper>
+          {!isLoading && data?.length === 0 ? (
+            <IllustrationBlock
+              size='xLarge'
+              page='bookmarks'
+              type={IllustrationsEnum.EmptyBookmarks}
+              title={'No Bookmarks Yet'}
+            />
+          ) : null}
+        </div>
+      </section>
+      {notifyData?.length > 0 && (
+        <NotificationContainer
+          handleClose={onNotificationDelete}
+          data={notifyData}
+        />
+      )}
+    </ErrorBoundary>
   );
 }
 

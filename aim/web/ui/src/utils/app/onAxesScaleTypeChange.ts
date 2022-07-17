@@ -1,3 +1,5 @@
+import { ANALYTICS_EVENT_KEYS } from 'config/analytics/analyticsKeysMap';
+
 import * as analytics from 'services/analytics';
 
 import { IAxesScaleState } from 'types/components/AxesScalePopover/AxesScalePopover';
@@ -18,15 +20,24 @@ export default function onAxesScaleTypeChange<M extends State>({
     shouldURLUpdate?: boolean,
   ) => void;
 }): void {
-  const configData = model?.getState()?.config;
+  let configData = model?.getState()?.config;
   if (configData?.chart) {
-    configData.chart.axesScaleType = args;
+    configData = {
+      ...configData,
+      chart: {
+        ...configData.chart,
+        axesScaleType: args,
+      },
+    };
+    model.setState({ config: configData });
     updateModelData(configData, true);
   }
   analytics.trackEvent(
-    `[${appName}Explorer][Chart] Set X axis scale type "${args.xAxis}"`,
+    // @ts-ignore
+    `${ANALYTICS_EVENT_KEYS[appName].chart.controls.changeAxesScale} to "${args.xAxis}"`,
   );
   analytics.trackEvent(
-    `[${appName}Explorer][Chart] Set Y axis scale type "${args.yAxis}"`,
+    // @ts-ignore
+    `${ANALYTICS_EVENT_KEYS[appName].chart.controls.changeAxesScale} to "${args.yAxis}"`,
   );
 }

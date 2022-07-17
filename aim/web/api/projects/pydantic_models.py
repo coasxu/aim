@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from typing import Dict
+from typing import Dict, Optional
 
 
 class ProjectApiOut(BaseModel):
@@ -11,7 +11,12 @@ class ProjectApiOut(BaseModel):
 
 class ProjectParamsOut(BaseModel):
     params: Dict
-    metrics: Dict[str, list]
+    metric: Optional[Dict[str, list]] = None
+    images: Optional[Dict[str, list]] = None
+    texts: Optional[Dict[str, list]] = None
+    figures: Optional[Dict[str, list]] = None
+    distributions: Optional[Dict[str, list]] = None
+    audios: Optional[Dict[str, list]] = None
 
 
 class ProjectActivityApiOut(BaseModel):

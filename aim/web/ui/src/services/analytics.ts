@@ -1,5 +1,5 @@
 //@ts-nocheck
-export const SEGMENT_DEMO_WRITE_KEY = 'Rj1I4AisLSvsvAnPW7OqkoYBUTXJRBHK';
+export const SEGMENT_DEMO_WRITE_KEY = 'Z5rtxFe3gJmZB8JD97c4rqQa9R0q4Gkn';
 export const SEGMENT_WRITE_KEY = 'RrVqLHHD6WDXoFBkodO9KidodTtU92XO';
 export function isDev() {
   return process.env.NODE_ENV === 'development';
@@ -9,8 +9,8 @@ let initialized = false;
 
 const enabled = () => {
   return (
-    (!isDev() && window.analytics !== false) || window.telemetry_enabled !== 0
-  ); //!isDev() && cookies.getCookie(configs.USER_ANALYTICS_COOKIE_NAME) == 1;
+    !isDev() && window.analytics !== false && window.telemetry_enabled === 1
+  );
 };
 
 const init = () => {
@@ -26,6 +26,7 @@ const init = () => {
     window.analytics._writeKey = SEGMENT_WRITE_KEY;
     window.analytics.load(SEGMENT_WRITE_KEY);
   }
+  window.analytics.identify();
   initialized = true;
 };
 

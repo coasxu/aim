@@ -1,26 +1,31 @@
 import { IOnSmoothingChange } from 'Metrics';
 
 import { HighlightEnum } from 'components/HighlightModesPopover/HighlightModesPopover';
+import { ILine } from 'components/LineChart/LineChart';
 
 import { DensityOptions } from 'config/enums/densityEnum';
+
+import { ISelectOption } from 'services/models/explorer/createAppModel';
 
 import { IAxesScaleState } from 'types/components/AxesScalePopover/AxesScalePopover';
 import {
   IAggregationConfig,
   IAlignmentConfig,
-  IChartTooltip,
+  ITooltip,
   IChartZoom,
   IGroupingSelectOption,
 } from 'types/services/models/metrics/metricsAppModel';
 import { IMetricProps } from 'types/pages/metrics/Metrics';
-import { IProjectParamsMetrics } from 'types/services/models/projects/projectsModel';
 
 import { SmoothingAlgorithmEnum } from 'utils/smoothingData';
-import { CurveEnum } from 'utils/d3';
+import { ChartTypeEnum, CurveEnum } from 'utils/d3';
 
 export interface IControlProps {
+  chartProps: any[];
+  chartType: ChartTypeEnum;
+  data: ILine[][] | any;
   selectOptions: IGroupingSelectOption[];
-  tooltip: IChartTooltip;
+  tooltip?: ITooltip;
   ignoreOutliers: boolean;
   zoom?: IChartZoom;
   highlightMode: HighlightEnum;
@@ -31,8 +36,8 @@ export interface IControlProps {
   curveInterpolation: CurveEnum;
   alignmentConfig: IAlignmentConfig;
   densityType: DensityOptions;
-  projectsDataMetrics: IProjectParamsMetrics['metrics'];
-  onChangeTooltip: (tooltip: Partial<IChartTooltip>) => void;
+  selectFormOptions: ISelectOption[];
+  onChangeTooltip: (tooltip: Partial<ITooltip>) => void;
   onIgnoreOutliersChange: () => void;
   onHighlightModeChange: (mode: number) => void;
   onDensityTypeChange: (type: DensityOptions) => void;

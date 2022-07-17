@@ -2,12 +2,10 @@
 
 .Runs_Search_Bar {
   display: flex;
-  border-bottom: $border-separator;
+  border-bottom: $border-main;
   padding: 1rem 1.5rem;
   align-items: center;
-  input {
-    font-family: monospace;
-  }
+
   form {
     width: 100%;
   }

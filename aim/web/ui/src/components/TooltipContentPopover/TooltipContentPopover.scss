@@ -16,4 +16,11 @@
   &__section {
     margin: 0 $space-xs;
   }
+  &__SelectedTagsContainer {
+    overflow: auto;
+    display: flex;
+    flex-wrap: wrap;
+    gap: $space-xxxs;
+    width: 100%;
+  }
 }

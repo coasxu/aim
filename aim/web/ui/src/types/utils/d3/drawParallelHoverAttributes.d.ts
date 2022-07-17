@@ -2,7 +2,7 @@ import React from 'react';
 
 import { IFocusedState } from 'types/services/models/metrics/metricsAppModel';
 
-import { IGetAxisScale } from './getAxisScale';
+import { IAxisScale } from './getAxisScale';
 import { ILineValuesDataType } from './drawParallelLines';
 import { IDimensionsType } from './drawParallelAxes';
 import {
@@ -11,23 +11,24 @@ import {
   IActivePoint,
 } from './drawHoverAttributes';
 
-export interface IDrawParallelHoverAttributesProps {
+export interface IDrawParallelHoverAttributesArgs {
   index: number;
+  nameKey: string;
   dimensions: IDimensionsType;
   visAreaRef: React.MutableRefObject<>;
   linesRef: React.MutableRefObject<>;
   visBoxRef: React.MutableRefObject<>;
   bgRectNodeRef: React.MutableRefObject<>;
   axesNodeRef: React.MutableRefObject<>;
+  svgNodeRef: React.MutableRefObject<>;
   attributesNodeRef: React.MutableRefObject<>;
   attributesRef: React.MutableRefObject<{
-    xScale?: IGetAxisScale;
-    yScale?: IGetAxisScale;
+    xScale?: IAxisScale;
+    yScale?: IAxisScale;
     x: number;
     y: number;
-    updateScales?: (xScale: IGetAxisScale, yScale: IGetAxisScale) => void;
+    updateScales?: (xScale: IAxisScale, yScale: IAxisScale) => void;
     updateHoverAttributes?: (mousePosition: [number, number]) => void;
-    setActiveLine: (lineKey: string) => void;
     yColorIndicatorScale: d3.ScaleSequential;
     mousePosition: number[];
     activePoint?: IActivePoint;
@@ -56,7 +57,7 @@ export interface IParallelClosestCircle {
   color: string;
 }
 export interface IUpdateParallelFocusedChartProps {
-  mouse?: [number, number];
+  mousePos?: [number, number];
   focusedStateActive?: boolean;
   force?: boolean;
 }

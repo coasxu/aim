@@ -1,34 +1,51 @@
 import React, { memo } from 'react';
 import ReactJson from 'react-json-view';
-import { isEmpty } from 'lodash-es';
+import _ from 'lodash-es';
 
 import BusyLoaderWrapper from 'components/BusyLoaderWrapper/BusyLoaderWrapper';
-import EmptyComponent from 'components/EmptyComponent/EmptyComponent';
+import IllustrationBlock from 'components/IllustrationBlock/IllustrationBlock';
+import ErrorBoundary from 'components/ErrorBoundary/ErrorBoundary';
 
-import { IRunDetailParamsTabProps } from 'types/pages/runs/Runs';
+import { ANALYTICS_EVENT_KEYS } from 'config/analytics/analyticsKeysMap';
+
+import * as analytics from 'services/analytics';
+
+import { IRunDetailParamsTabProps } from './types';
 
 function RunDetailParamsTab({
   runParams,
   isRunInfoLoading,
 }: IRunDetailParamsTabProps): React.FunctionComponentElement<React.ReactNode> {
+  React.useEffect(() => {
+    analytics.pageView(ANALYTICS_EVENT_KEYS.runDetails.tabs.params.tabView);
+  }, []);
+
   return (
-    <BusyLoaderWrapper
-      isLoading={isRunInfoLoading || !runParams}
-      className='runDetailParamsTabLoader'
-      height='100%'
-    >
-      <div className='RunDetailParamsTab'>
-        {!isEmpty(runParams) ? (
-          <ReactJson name={false} theme='bright:inverted' src={runParams} />
+    <ErrorBoundary>
+      <BusyLoaderWrapper
+        isLoading={isRunInfoLoading || !runParams}
+        className='runDetailParamsTabLoader'
+        height='100%'
+      >
+        {!_.isEmpty(runParams) ? (
+          <div className='RunDetailParamsTabWrapper'>
+            <div className='RunDetailParamsTab'>
+              <ReactJson
+                name={false}
+                theme='bright:inverted'
+                src={_.omit(runParams, '__system_params')}
+              />
+            </div>
+          </div>
         ) : (
-          <EmptyComponent
-            size='big'
+          <IllustrationBlock
+            size='xLarge'
             className='runDetailParamsTabLoader'
-            content='No Params'
+            title='No Params'
           />
         )}
-      </div>
-    </BusyLoaderWrapper>
+      </BusyLoaderWrapper>
+    </ErrorBoundary>
   );
 }
 

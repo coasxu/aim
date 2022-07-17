@@ -1,6 +1,8 @@
 import React from 'react';
 
-import { ISwitcherProps, SwitcherLabel } from './Switcher.d';
+import ErrorBoundary from 'components/ErrorBoundary/ErrorBoundary';
+
+import { ISwitcherProps } from './Switcher.d';
 
 import './Switcher.scss';
 
@@ -23,36 +25,33 @@ function Switcher({
     onChange(e, !checkedValue);
   }
 
-  function isValidLabel(label: SwitcherLabel | unknown) {
-    return !(label === null || label === undefined);
-  }
-
   React.useEffect(() => {
-    if (checked !== checkedValue) {
-      setCheckedValue(checked);
-    }
+    setCheckedValue((prevState) => {
+      return checked !== prevState ? checked : prevState;
+    });
   }, [checked]);
 
   return (
-    <button
-      data-name={name}
-      className={`Switcher ${`Switcher__${variant}`} ${`Switcher__${color}`} ${`Switcher__${size} ${
-        checkedValue ? 'Switcher__checked' : ''
-      }`}`}
-      onClick={handleClick}
-    >
-      {isValidLabel(leftLabel) && (
-        <span className='Switcher__leftLabel'>{leftLabel}</span>
-      )}
-      <i
-        className={`Switcher__circle ${
-          checkedValue ? 'Switcher__circle__checked' : ''
-        }`}
-      />
-      {isValidLabel(rightLabel) && (
-        <span className='Switcher__rightLabel'>{rightLabel}</span>
-      )}
-    </button>
+    <ErrorBoundary>
+      <button
+        data-name={name}
+        data-testid='switcher'
+        className={`Switcher ${`Switcher__${variant}`} ${`Switcher__${color}`} ${`Switcher__${size} ${
+          checkedValue ? 'Switcher__checked' : ''
+        }`}`}
+        onClick={handleClick}
+      >
+        {leftLabel && <span className='Switcher__leftLabel'>{leftLabel}</span>}
+        <i
+          className={`Switcher__circle ${
+            checkedValue ? 'Switcher__circle__checked' : ''
+          }`}
+        />
+        {rightLabel && (
+          <span className='Switcher__rightLabel'>{rightLabel}</span>
+        )}
+      </button>
+    </ErrorBoundary>
   );
 }
 

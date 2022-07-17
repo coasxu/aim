@@ -1,10 +1,13 @@
 import _ from 'lodash-es';
 
+import { getValue } from 'utils/helper';
+
 function getObjectPaths(
   obj: { [key: string]: unknown },
   rootObject: { [key: string]: unknown },
   prefix: string = '',
   includeRoot: boolean = false,
+  withoutLeaves = false,
 ): string[] {
   if (obj === null) {
     return [];
@@ -13,10 +16,14 @@ function getObjectPaths(
     return { prefixedKey: prefix ? `${prefix}.${key}` : key, key };
   });
   let paths: string[] = includeRoot
-    ? rootKeys.reduce((acc: string[], { prefixedKey }) => {
-        const val: any = _.get(rootObject, prefixedKey);
+    ? rootKeys.reduce((acc: string[], { prefixedKey, key }) => {
+        const val: any = getValue(rootObject, prefixedKey);
         if (typeof val !== 'object' || _.isNil(val) || _.isArray(val)) {
-          acc.push(prefixedKey);
+          if (withoutLeaves) {
+            acc.push(prefixedKey.slice(0, prefixedKey.indexOf(`.${key}`)));
+          } else {
+            acc.push(prefixedKey);
+          }
         }
         return acc;
       }, [])
@@ -29,9 +36,11 @@ function getObjectPaths(
           return key;
         });
   rootKeys.forEach(({ prefixedKey }) => {
-    const val: any = _.get(rootObject, prefixedKey);
+    const val: any = getValue(rootObject, prefixedKey);
     if (typeof val === 'object' && !_.isNil(val) && !Array.isArray(val)) {
-      paths = paths.concat(getObjectPaths(val, rootObject, prefixedKey, true));
+      paths = paths.concat(
+        getObjectPaths(val, rootObject, prefixedKey, true, withoutLeaves),
+      );
     }
   });
 

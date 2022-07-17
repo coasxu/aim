@@ -4,13 +4,14 @@ import { ResizeModeEnum } from 'config/enums/tableEnums';
 
 import { ILine, ILineChartProps } from 'types/components/LineChart/LineChart';
 import { IActivePoint } from 'types/utils/d3/drawHoverAttributes';
-import { IProcessedData } from 'types/utils/d3/processData';
+import { IProcessedData } from 'types/utils/d3/processLineChartData';
 import {
   IAggregationConfig,
-  IChartTooltip,
+  ITooltip,
   IFocusedState,
   IAlignmentConfig,
   IChartZoom,
+  IGroupingSelectOption,
 } from 'types/services/models/metrics/metricsAppModel';
 import { IHighPlotProps } from 'types/components/HighPlot/HighPlot';
 
@@ -22,10 +23,11 @@ export interface IChartPanelProps {
   data: ILine[][] | any;
   panelResizing?: boolean;
   focusedState: IFocusedState;
-  tooltip: IChartTooltip;
+  tooltip: ITooltip;
   aggregationConfig?: IAggregationConfig;
   alignmentConfig?: IAlignmentConfig;
   zoom?: Partial<IChartZoom>;
+  chartPanelOffsetHeight?: number;
   // chartProps: Omit<
   //   ILineChartProps | IHighPlotProps,
   //   'data' | 'index' | 'syncHoverState'
@@ -38,7 +40,8 @@ export interface IChartPanelProps {
     activePoint: IActivePoint,
     focusedStateActive?: boolean,
   ) => void;
-  resizeMode: ResizeModeEnum;
+  resizeMode?: ResizeModeEnum;
+  selectOptions: IGroupingSelectOption[];
 }
 
 export interface IChartPanelRef {
@@ -57,5 +60,6 @@ export type IMemoizedForwardRefComponent<T> = React.MemoExoticComponent<
 export interface IChartTypeConfig {
   [key: string]:
     | IMemoizedForwardRefComponent<ILineChartProps>
-    | IMemoizedForwardRefComponent<IHighPlotProps>;
+    | IMemoizedForwardRefComponent<IHighPlotProps>
+    | IMemoizedForwardRefComponent<any>;
 }

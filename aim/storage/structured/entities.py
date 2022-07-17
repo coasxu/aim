@@ -1,11 +1,12 @@
 from abc import abstractmethod, ABC
-from typing import Generic, TypeVar, Collection, Optional
+from typing import Generic, TypeVar, Collection, Optional, List
 
 T = TypeVar('T')
 
 RunCollection = Collection['Run']
 ExperimentCollection = Collection['Experiment']
 TagCollection = Collection['Tag']
+NoteCollection = Collection['Note']
 
 
 class StructuredObject(ABC):
@@ -88,7 +89,7 @@ class Run(StructuredObject, Searchable['Run']):
         ...
 
     @abstractmethod
-    def remove_tag(self, tag_id: str) -> bool:
+    def remove_tag(self, tag_name: str) -> bool:
         ...
 
 
@@ -176,6 +177,28 @@ class Tag(StructuredObject, Searchable['Tag']):
         ...
 
 
+class Note(StructuredObject, Searchable['Note']):
+    @property
+    @abstractmethod
+    def id(self) -> int:
+        ...
+
+    @property
+    @abstractmethod
+    def content(self) -> str:
+        ...
+
+    @content.setter
+    @abstractmethod
+    def content(self, value: str):
+        ...
+
+    @property
+    @abstractmethod
+    def run(self) -> int:
+        ...
+
+
 class ObjectFactory:
     @abstractmethod
     def runs(self) -> RunCollection:
@@ -190,7 +213,15 @@ class ObjectFactory:
         ...
 
     @abstractmethod
+    def find_runs(self, ids: List[str]) -> List[Run]:
+        ...
+
+    @abstractmethod
     def create_run(self, runhash: str) -> Run:
+        ...
+
+    @abstractmethod
+    def delete_run(self, runhash: str) -> bool:
         ...
 
     @abstractmethod

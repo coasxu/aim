@@ -1,19 +1,22 @@
-import { IMetricAppConfig } from 'types/services/models/metrics/metricsAppModel';
+import { ISelectOption } from 'services/models/explorer/createAppModel';
+
+import { ISyntaxErrorDetails } from 'types/components/NotificationContainer/NotificationContainer';
+import { IAppModelConfig } from 'types/services/models/explorer/createAppModel';
 
 export interface ISelectFormProps {
-  selectedMetricsData: IMetricAppConfig['select'];
-  onMetricsSelectChange: (metrics: ISelectMetricsOption[]) => void;
+  requestIsPending: boolean;
+  isDisabled?: boolean;
+  selectedMetricsData: IAppModelConfig['select'];
+  selectFormData: {
+    options: ISelectOption[];
+    suggestions: Record<any>;
+    advancedSuggestions?: Record<any>;
+    error: ISyntaxErrorDetails;
+    advancedError: ISyntaxErrorDetails;
+  };
+  onMetricsSelectChange: (options: ISelectOption[]) => void;
   onSelectRunQueryChange: (query: string) => void;
   onSelectAdvancedQueryChange: (query: string) => void;
   toggleSelectAdvancedMode: () => void;
   onSearchQueryCopy: () => void;
-}
-export interface ISelectMetricsOption {
-  label: string;
-  group: string;
-  color: string;
-  value: {
-    metric_name: string;
-    context: { [key: string]: unknown } | null | any;
-  };
 }

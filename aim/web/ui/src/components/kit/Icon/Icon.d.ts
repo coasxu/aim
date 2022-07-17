@@ -6,6 +6,7 @@ export interface IIconProps
   extends React.BaseHTMLAttributes<any>,
     Partial<React.ComponentType<BoxProps | any>> {
   name: IconName;
+  box?: boolean;
   className?: string;
   style?: CSSProperties;
   fontSize?: number | string;
@@ -89,7 +90,7 @@ export type IconName =
   | 'plus'
   | 'Runs'
   | 'check-rectangle'
-  | 'check-circle'
+  | 'circle-check'
   | 'check'
   | 'link'
   | 'images'
@@ -97,4 +98,43 @@ export type IconName =
   | 'sort-arrow-down'
   | 'live-demo'
   | 'co'
-  | 'full-docs';
+  | 'full-docs'
+  | 'scatterplot'
+  | 'y-axis'
+  | 'image-explorer'
+  | 'image-properties'
+  | 'play'
+  | 'pause'
+  | 'voice-on'
+  | 'voice-off'
+  | 'slack'
+  | 'images-stacking'
+  | 'typeTriangle-Outline'
+  | 'typeTriangle'
+  | 'trendline'
+  | 'voice-off'
+  | 'case-sensitive'
+  | 'word-match'
+  | 'regex'
+  | 'unarchive'
+  | 'archive'
+  | 'circle-with-dot'
+  | 'show-system-metrics'
+  | 'hide-system-metrics'
+  | 'circle-question'
+  | 'hide-system-metrics'
+  | 'time'
+  | 'duration'
+  | 'hash'
+  | 'calendar'
+  | 'avatar'
+  | 'branch'
+  | 'color-scale-off'
+  | 'color-scale-on'
+  | 'text'
+  | 'minus'
+  | 'update-time'
+  | 'circle-info'
+  | 'warning-outline'
+  | 'warning-contained'
+  | 'info-circle-outline';

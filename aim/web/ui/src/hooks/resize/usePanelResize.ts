@@ -2,14 +2,14 @@ import React from 'react';
 
 import { ResizeModeEnum } from 'config/enums/tableEnums';
 
-import { IMetricAppConfig } from 'types/services/models/metrics/metricsAppModel';
+import { ITableConfig } from 'types/services/models/explorer/createAppModel';
 
 function usePanelResize(
   wrapperRef: React.MutableRefObject<HTMLElement | any>,
   topPanelRef: React.MutableRefObject<HTMLElement | any>,
   bottomPanelRef: React.MutableRefObject<HTMLElement | any>,
   resizeElemRef: React.MutableRefObject<HTMLElement | any>,
-  tableConfig: IMetricAppConfig['table'],
+  tableConfig: ITableConfig | undefined,
   onResizeEnd: (height: string) => void,
 ) {
   const [panelResizing, setPanelResizing] = React.useState<boolean>(false);
@@ -67,7 +67,9 @@ function usePanelResize(
 
   const handleResizeModeChange = React.useCallback(
     (mode: ResizeModeEnum) => {
-      const tableHeight: number = tableConfig ? +tableConfig.height : 0.5;
+      const tableHeight: number = tableConfig?.height
+        ? +tableConfig.height
+        : 0.5;
       if (topPanelRef.current && bottomPanelRef.current) {
         switch (mode) {
           case ResizeModeEnum.Hide:
@@ -87,26 +89,31 @@ function usePanelResize(
         }
       }
     },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [bottomPanelRef, tableConfig?.height, topPanelRef],
   );
+
   React.useEffect(() => {
-    resizeElemRef.current.addEventListener('mousedown', handleResize);
-    tableConfig && handleResizeModeChange(tableConfig?.resizeMode);
+    resizeElemRef.current?.addEventListener('mousedown', handleResize);
+    tableConfig?.resizeMode && handleResizeModeChange(tableConfig?.resizeMode);
     return () => {
       setPanelResizing(false);
+      // eslint-disable-next-line react-hooks/exhaustive-deps
       resizeElemRef.current?.removeEventListener('mousedown', handleResize);
       document.removeEventListener('mouseup', endResize);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     endResize,
     handleResize,
     handleResizeModeChange,
-    resizeElemRef,
+    resizeElemRef.current,
     tableConfig?.resizeMode,
   ]);
 
   React.useEffect(() => {
-    tableConfig && handleResizeModeChange(tableConfig?.resizeMode);
+    tableConfig?.resizeMode && handleResizeModeChange(tableConfig?.resizeMode);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tableConfig?.resizeMode, handleResizeModeChange]);
 
   return panelResizing;

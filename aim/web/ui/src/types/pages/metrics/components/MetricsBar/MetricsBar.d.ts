@@ -5,6 +5,8 @@ export interface IMetricsBarProps {
   onBookmarkUpdate: IMetricProps['onBookmarkUpdate'];
   onResetConfigData: IMetricProps['onResetConfigData'];
   liveUpdateConfig: { delay: number; enabled: boolean };
+  explorerName?: 'IMAGES' | 'PARAMS' | 'METRICS' | 'SCATTERS' | 'RUNS';
+  disabled?: boolean;
   onLiveUpdateConfigChange: (config: {
     delay?: number;
     enabled?: boolean;

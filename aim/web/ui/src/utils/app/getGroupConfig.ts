@@ -1,25 +1,26 @@
-import _ from 'lodash-es';
+import { GroupNameEnum } from 'config/grouping/GroupingPopovers';
 
 import {
-  GroupNameType,
   IGroupingSelectOption,
   IMetricsCollection,
 } from 'types/services/models/metrics/metricsAppModel';
-import { IModel, State } from 'types/services/models/model';
+import { IAppModelConfig } from 'types/services/models/explorer/createAppModel';
+
+import { getValue } from 'utils/helper';
 
 import getValueByField from '../getValueByField';
 
-export default function getGroupConfig<D, M extends State>({
-  metricsCollection,
+export default function getGroupConfig<D>({
+  collection,
   groupingSelectOptions,
-  model,
+  groupingItems = [],
+  configData,
 }: {
-  metricsCollection: IMetricsCollection<D>;
+  collection: IMetricsCollection<D>;
   groupingSelectOptions: IGroupingSelectOption[];
-  model: IModel<M>;
+  groupingItems: GroupNameEnum[];
+  configData: IAppModelConfig;
 }) {
-  const groupingItems: GroupNameType[] = ['color', 'stroke', 'chart'];
-  const configData = model.getState()?.config;
   let groupConfig: { [key: string]: {} } = {};
 
   for (let groupItemKey of groupingItems) {
@@ -27,8 +28,8 @@ export default function getGroupConfig<D, M extends State>({
     if (groupItem.length) {
       groupConfig[groupItemKey] = groupItem.reduce((acc, paramKey) => {
         Object.assign(acc, {
-          [getValueByField(groupingSelectOptions || [], paramKey)]: _.get(
-            metricsCollection.config,
+          [getValueByField(groupingSelectOptions || [], paramKey)]: getValue(
+            collection.config,
             paramKey,
           ),
         });

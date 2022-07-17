@@ -7,6 +7,17 @@ export interface INotificationContainer {
 
 export interface INotification {
   id: number;
-  message: string;
+  messages: string[];
+  closeDelay?: number;
   severity: 'error' | 'info' | 'success' | 'warning';
+}
+
+export interface ISyntaxErrorDetails {
+  detail: {
+    line: number;
+    offset: number;
+    end_offset?: number;
+    statement: string;
+  };
+  message: string;
 }

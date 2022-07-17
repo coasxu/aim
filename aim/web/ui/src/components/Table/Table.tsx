@@ -2,26 +2,34 @@
 /* eslint-disable react/prop-types */
 
 import React from 'react';
-import { debounce, isEmpty, isNil } from 'lodash-es';
+import { debounce, isEmpty, isEqual } from 'lodash-es';
 
 import { Button, Icon, Text } from 'components/kit';
 import ControlPopover from 'components/ControlPopover/ControlPopover';
-import EmptyComponent from 'components/EmptyComponent/EmptyComponent';
-import BusyLoaderWrapper from 'components/BusyLoaderWrapper/BusyLoaderWrapper';
+import IllustrationBlock from 'components/IllustrationBlock/IllustrationBlock';
 import ResizeModeActions from 'components/ResizeModeActions/ResizeModeActions';
+import ErrorBoundary from 'components/ErrorBoundary/ErrorBoundary';
 
-import { rowCeilSizeConfig, RowHeightSize } from 'config/table/tableConfigs';
+import {
+  ROW_CELL_SIZE_CONFIG,
+  RowHeightSize,
+  TABLE_DEFAULT_CONFIG,
+} from 'config/table/tableConfigs';
+import { IllustrationsEnum } from 'config/illustrationConfig/illustrationConfig';
 
-import HideRows from 'pages/Metrics/components/Table/HideRowsPopover/HideRowsPopover';
-import RowHeight from 'pages/Metrics/components/Table/RowHeightPopover/RowHeightPopover';
-import ManageColumns from 'pages/Metrics/components/Table/ManageColumnsPopover/ManageColumnsPopover';
+import useResizeObserver from 'hooks/window/useResizeObserver';
+
 import SortPopover from 'pages/Metrics/components/Table/SortPopover/SortPopover';
+import ManageColumnsPopover from 'pages/Metrics/components/Table/ManageColumnsPopover/ManageColumnsPopover';
+import HideRowsPopover from 'pages/Metrics/components/Table/HideRowsPopover/HideRowsPopover';
+import RowHeightPopover from 'pages/Metrics/components/Table/RowHeightPopover/RowHeightPopover';
 
 import { ITableProps } from 'types/components/Table/Table';
 
-import TableLoader from '../TableLoader/TableLoader';
 import CustomTable from '../CustomTable/Table';
 
+import ArchiveModal from './ArchiveModal';
+import DeleteModal from './DeleteModal';
 import AutoResizer from './AutoResizer';
 import BaseTable from './BaseTable';
 
@@ -32,23 +40,24 @@ const Table = React.forwardRef(function Table(
     onManageColumns,
     onColumnsVisibilityChange,
     onTableDiffShow,
+    sameValueColumns,
     onSort,
     onRowsChange,
     onExport,
     onRowHeightChange,
-    onRowHover,
-    onRowClick,
+    onRowHover = () => {},
+    onRowClick = () => {},
     onTableResizeModeChange,
     custom,
     data,
     columns,
     navBarItems,
     rowHeight = RowHeightSize.md,
+    estimatedRowHeight,
     headerHeight = RowHeightSize.md,
     sortOptions,
     hideHeaderActions = false,
     fixed = true,
-    emptyText = 'No Data',
     excludedFields,
     setExcludedFields,
     alwaysVisibleColumns,
@@ -59,12 +68,28 @@ const Table = React.forwardRef(function Table(
     updateColumnsWidths,
     sortFields,
     hiddenRows,
-    groups,
     isLoading,
     showRowClickBehaviour = true,
     showResizeContainerActionBar = true,
     resizeMode,
     onSortReset,
+    height = 'calc(100% - 40px)',
+    multiSelect = false,
+    selectedRows,
+    onRowSelect,
+    minHeight,
+    archiveRuns,
+    deleteRuns,
+    hideSystemMetrics,
+    className = '',
+    appName,
+    hiddenChartRows,
+    focusedState,
+    columnsOrder,
+    illustrationConfig,
+    disableRowClick = false,
+    onToggleColumnsColorScales,
+    columnsColorScales,
     ...props
   }: ITableProps,
   ref,
@@ -79,11 +104,36 @@ const Table = React.forwardRef(function Table(
   const dataRef = React.useRef(data);
   const columnsRef = React.useRef(columns ?? []);
   const hiddenColumnsRef = React.useRef(hiddenColumns);
+  const scrollTopMutableRef = React.useRef({ top: 0 });
 
   const [rowData, setRowData] = React.useState(data);
   const [columnsData, setColumnsData] = React.useState(columns ?? []);
   const [expanded, setExpanded] = React.useState({});
-  const scrollTopMutableRef = React.useRef({ top: 0 });
+  const [isOpenDeleteSelectedPopup, setIsOpenDeleteSelectedPopup] =
+    React.useState(false);
+  const [isOpenUnarchiveSelectedPopup, setIsOpenUnarchiveSelectedPopup] =
+    React.useState(false);
+  const [isOpenArchiveSelectedPopup, setIsOpenArchiveSelectedPopup] =
+    React.useState(false);
+  const [tableBulkActionsVisibility, setTableBulkActionsVisibility] =
+    React.useState({ delete: false, archive: false, unarchive: false });
+  const [listWindow, setListWindow] = React.useState({
+    left: 0,
+    width: 0,
+    availableSpace: 0,
+  });
+
+  let groups = !Array.isArray(rowData);
+
+  React.useEffect(() => {
+    if (focusedState && !focusedState.active) {
+      activeRowKey.current = null;
+    }
+  }, [focusedState]);
+
+  React.useEffect(() => {
+    updateFocusedRow(`rowKey-${activeRowKey.current}`);
+  }, [selectedRows]);
 
   React.useImperativeHandle(ref, () => ({
     updateData: updateData,
@@ -111,6 +161,7 @@ const Table = React.forwardRef(function Table(
         beforeScrollHeight += itemHeight + groupMargin;
         scrollBottomHeight += itemHeight + groupMargin;
         if (expandedGroups.current.includes(groupKey)) {
+          // eslint-disable-next-line no-loop-func
           dataRef.current[groupKey].items.forEach((row) => {
             if (scrollTop > beforeScrollHeight) {
               beforeScrollHeight += itemHeight;
@@ -206,7 +257,7 @@ const Table = React.forwardRef(function Table(
         } else {
           activeRowKey.current = rowKey;
         }
-        updateHoveredRow(`rowKey-${activeRowKey.current}`);
+        updateFocusedRow(`rowKey-${activeRowKey.current}`);
       } else {
         tableRef.current?.setActiveRow(rowKey);
       }
@@ -220,9 +271,18 @@ const Table = React.forwardRef(function Table(
           const rowCell = document.querySelector(
             `.Table__cell.rowKey-${rowKey}`,
           );
-
           if (!!rowCell) {
-            const top = rowCell.offsetTop - (groups ? 3 : 2) * rowHeight;
+            let top = 0;
+            if (groups) {
+              rowCell.parentElement?.childNodes?.forEach((item, index) => {
+                if ([...item.classList].includes(`rowKey-${rowKey}`)) {
+                  top =
+                    rowCell.parentElement?.offsetTop + rowHeight * (index - 3);
+                }
+              });
+            } else {
+              top = rowCell.offsetTop - 2 * rowHeight;
+            }
             if (
               tableContainerRef.current.scrollTop > top ||
               tableContainerRef.current.scrollTop +
@@ -253,7 +313,7 @@ const Table = React.forwardRef(function Table(
                 // TODO: probably need useEffect for this
                 setTimeout(() => {
                   window.requestAnimationFrame(() => {
-                    updateHoveredRow(`rowKey-${rowKey}`);
+                    updateFocusedRow(`rowKey-${rowKey}`);
                     scrollToElement();
                   });
                 }, 100);
@@ -287,6 +347,14 @@ const Table = React.forwardRef(function Table(
                     groupRow.data.aggregation.line;
                   groupHeaderRowCell.children[0].children[0].children[2].textContent =
                     groupRow.data.aggregation.area.max;
+                  if (!_.isNil(groupRow.data.aggregation.area.stdDevValue)) {
+                    groupHeaderRowCell.children[0].children[0].children[3].textContent =
+                      groupRow.data.aggregation.area.stdDevValue;
+                  }
+                  if (!_.isNil(groupRow.data.aggregation.area.stdErrValue)) {
+                    groupHeaderRowCell.children[0].children[0].children[3].textContent =
+                      groupRow.data.aggregation.area.stdErrValue;
+                  }
                 } else {
                   groupHeaderRowCell.textContent = groupRow.data[colKey];
                 }
@@ -345,7 +413,9 @@ const Table = React.forwardRef(function Table(
       offsetHeight: tableContainerRef.current.offsetHeight,
       scrollHeight: tableContainerRef.current.scrollHeight,
       itemHeight: rowHeight,
-      groupMargin: rowCeilSizeConfig[rowHeight].groupMargin,
+      groupMargin:
+        ROW_CELL_SIZE_CONFIG[rowHeight]?.groupMargin ??
+        ROW_CELL_SIZE_CONFIG[RowHeightSize.md].groupMargin,
     });
 
     startIndex.current = windowEdges.startIndex;
@@ -371,7 +441,7 @@ const Table = React.forwardRef(function Table(
         activeRowKey.current = row.key;
       }
 
-      updateHoveredRow(`rowKey-${activeRowKey.current}`);
+      updateFocusedRow(`rowKey-${activeRowKey.current}`);
     }
 
     if (typeof onRowClick === 'function') {
@@ -382,11 +452,17 @@ const Table = React.forwardRef(function Table(
   }
 
   function updateHoveredRow(activeRowClass) {
+    const prevActiveRow = document.querySelectorAll('.Table__cell.focused');
+    if (!!prevActiveRow && prevActiveRow.length > 0) {
+      prevActiveRow.forEach((cell) => cell.classList.remove('focused'));
+    }
     if (activeRowClass !== 'rowKey-null') {
       window.requestAnimationFrame(() => {
-        const prevActiveRow = document.querySelectorAll('.Table__cell.active');
-        if (!!prevActiveRow && prevActiveRow.length > 0) {
-          prevActiveRow.forEach((cell) => cell.classList.remove('active'));
+        const prevHoveredRow = document.querySelectorAll(
+          '.Table__cell.hovered',
+        );
+        if (!!prevHoveredRow && prevHoveredRow.length > 0) {
+          prevHoveredRow.forEach((cell) => cell.classList.remove('hovered'));
         }
 
         const activeRow = document.querySelectorAll(
@@ -394,10 +470,67 @@ const Table = React.forwardRef(function Table(
         );
 
         if (!!activeRow && activeRow.length > 0) {
-          activeRow.forEach((cell) => cell.classList.add('active'));
+          activeRow.forEach((cell) => cell.classList.add('hovered'));
         }
       });
     }
+  }
+
+  function updateFocusedRow(activeRowClass) {
+    const prevHoveredRow = document.querySelectorAll('.Table__cell.hovered');
+    if (!!prevHoveredRow && prevHoveredRow.length > 0) {
+      prevHoveredRow.forEach((cell) => cell.classList.remove('hovered'));
+    }
+    if (activeRowClass !== 'rowKey-null') {
+      window.requestAnimationFrame(() => {
+        const prevActiveRow = document.querySelectorAll('.Table__cell.focused');
+        if (!!prevActiveRow && prevActiveRow.length > 0) {
+          prevActiveRow.forEach((cell) => cell.classList.remove('focused'));
+        }
+
+        const activeRow = document.querySelectorAll(
+          `.Table__cell.${activeRowClass}`,
+        );
+
+        if (!!activeRow && activeRow.length > 0) {
+          activeRow.forEach((cell) => cell.classList.add('focused'));
+        }
+      });
+    }
+  }
+
+  function setListWindowMeasurements() {
+    const leftPane =
+      tableContainerRef.current?.querySelector('.Table__pane--left');
+    const rightPane = tableContainerRef.current?.querySelector(
+      '.Table__pane--right',
+    );
+    let availableSpace = 0;
+
+    if (leftPane || rightPane) {
+      availableSpace =
+        tableContainerRef.current.offsetWidth -
+        (leftPane?.offsetWidth ?? 0) -
+        (rightPane?.offsetWidth ?? 0);
+    }
+
+    setListWindow({
+      left: tableContainerRef.current?.scrollLeft,
+      width: tableContainerRef.current?.offsetWidth,
+      availableSpace,
+    });
+  }
+
+  function onToggleDeletePopup() {
+    setIsOpenDeleteSelectedPopup(!isOpenDeleteSelectedPopup);
+  }
+
+  function onToggleArchivePopup() {
+    setIsOpenArchiveSelectedPopup(!isOpenArchiveSelectedPopup);
+  }
+
+  function onToggleUnarchivePopup() {
+    setIsOpenUnarchiveSelectedPopup(!isOpenUnarchiveSelectedPopup);
   }
 
   React.useEffect(() => {
@@ -407,7 +540,9 @@ const Table = React.forwardRef(function Table(
         offsetHeight: tableContainerRef.current.offsetHeight,
         scrollHeight: tableContainerRef.current.scrollHeight,
         itemHeight: rowHeight,
-        groupMargin: rowCeilSizeConfig[rowHeight].groupMargin,
+        groupMargin:
+          ROW_CELL_SIZE_CONFIG[rowHeight]?.groupMargin ??
+          ROW_CELL_SIZE_CONFIG[RowHeightSize.md].groupMargin,
       });
 
       startIndex.current = windowEdges.startIndex;
@@ -421,7 +556,9 @@ const Table = React.forwardRef(function Table(
           offsetHeight: target.offsetHeight,
           scrollHeight: target.scrollHeight,
           itemHeight: rowHeight,
-          groupMargin: rowCeilSizeConfig[rowHeight].groupMargin,
+          groupMargin:
+            ROW_CELL_SIZE_CONFIG[rowHeight]?.groupMargin ??
+            ROW_CELL_SIZE_CONFIG[RowHeightSize.md].groupMargin,
         });
 
         startIndex.current = windowEdges.startIndex;
@@ -444,28 +581,106 @@ const Table = React.forwardRef(function Table(
             props.infiniteLoadHandler();
           }
         }
-      }, 100);
+        setListWindowMeasurements();
+      }, 30);
     }
 
     return () => {
       if (custom && tableContainerRef.current) {
+        // eslint-disable-next-line react-hooks/exhaustive-deps
         tableContainerRef.current.onscroll = null;
       }
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [custom, rowData]);
+
+  React.useEffect(() => {
+    if (custom) {
+      setListWindowMeasurements();
+    }
+  }, [custom, columnsWidths, rowData]);
+
+  React.useEffect(() => {
+    if (custom) {
+      requestAnimationFrame(() => {
+        if (!activeRowKey.current) {
+          updateHoveredRow(
+            `rowKey-${
+              activeRowKey.current
+                ? activeRowKey.current
+                : hoveredRowKey.current
+            }`,
+          );
+        }
+      });
+    }
+  }, [custom, listWindow]);
+
+  const observerReturnCallback = React.useCallback(() => {
+    setListWindowMeasurements();
+  }, []);
+
+  React.useEffect(() => {
+    const tableBulkActionsVisibility = {
+      delete: false,
+      archive: false,
+      unarchive: false,
+    };
+    const values = Object.values(selectedRows || {});
+    for (let i = 0; i < values.length; i++) {
+      const value: any = values[i];
+      if (
+        tableBulkActionsVisibility.delete &&
+        tableBulkActionsVisibility.archive &&
+        tableBulkActionsVisibility.unarchive
+      ) {
+        break;
+      }
+      if (value.archived) {
+        tableBulkActionsVisibility.archive = true;
+      } else {
+        tableBulkActionsVisibility.unarchive = true;
+      }
+      if (value.end_time) {
+        tableBulkActionsVisibility.delete = true;
+      }
+    }
+    setTableBulkActionsVisibility(tableBulkActionsVisibility);
+  }, [selectedRows]);
+
+  const sortPopoverChanged: boolean = React.useMemo(() => {
+    return (
+      TABLE_DEFAULT_CONFIG[appName as Exclude<AppNameEnum, 'runs'>]?.sortFields
+        ?.length !== sortFields?.length
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sortFields]);
+
+  useResizeObserver(
+    observerReturnCallback,
+    tableContainerRef,
+    sortPopoverChanged,
+  );
+
+  const isDiffButtonDisabled: boolean = React.useMemo(() => {
+    if (sameValueColumns) {
+      let filteredColumns: string[] = sameValueColumns?.filter(
+        (value) =>
+          !TABLE_DEFAULT_CONFIG[appName].nonHidableColumns.has(value) &&
+          !hiddenColumns?.includes(value),
+      );
+      return !filteredColumns.length;
+    }
+  }, [appName, sameValueColumns, hiddenColumns]);
 
   // The right check is !props.isInfiniteLoading && (isLoading || isNil(rowData))
   // but after setting isInfiniteLoading to true, the rowData becomes null, unnecessary renders happening
   // @TODO sanitize this point
   return (
-    <BusyLoaderWrapper
-      isLoading={!props.isInfiniteLoading && (isLoading || isNil(rowData))}
-      loaderComponent={<TableLoader />}
-      className='Tags__TagList__tagListBusyLoader'
-    >
+    <ErrorBoundary>
       {!isEmpty(rowData) ? (
-        <div style={{ height: '100%' }}>
-          {!hideHeaderActions && (
+        <div style={{ height: '100%' }} className={className}>
+          {!hideHeaderActions && isEmpty(selectedRows) ? (
             <div className='Table__header'>
               {showResizeContainerActionBar && (
                 <ResizeModeActions
@@ -473,83 +688,35 @@ const Table = React.forwardRef(function Table(
                   onTableResizeModeChange={onTableResizeModeChange}
                 />
               )}
+
               <div className='flex fac Table__header__buttons'>
                 {onManageColumns && (
-                  <ControlPopover
-                    title='Manage Table Columns'
-                    anchorOrigin={{
-                      vertical: 'bottom',
-                      horizontal: 'left',
-                    }}
-                    transformOrigin={{
-                      vertical: 'top',
-                      horizontal: 'left',
-                    }}
-                    anchor={({ onAnchorClick, opened }) => (
-                      <Button
-                        color='secondary'
-                        type='text'
-                        onClick={onAnchorClick}
-                        className={`Table__header__item ${
-                          opened ? 'opened' : ''
-                        }`}
-                      >
-                        <Icon name='manage-column' />
-                        <Text size={14} tint={100}>
-                          Manage Columns
-                        </Text>
-                      </Button>
+                  <ManageColumnsPopover
+                    columnsData={columnsData.filter(
+                      (item: any) => item.key !== '#' && item.key !== 'actions',
                     )}
-                    component={
-                      <ManageColumns
-                        columnsData={columnsData.filter(
-                          (item: any) =>
-                            item.key !== '#' && item.key !== 'actions',
-                        )}
-                        hiddenColumns={hiddenColumnsRef.current}
-                        onManageColumns={onManageColumns}
-                        onColumnsVisibilityChange={onColumnsVisibilityChange}
-                        onTableDiffShow={onTableDiffShow}
-                      />
-                    }
+                    columnsOrder={columnsOrder}
+                    hiddenColumns={hiddenColumns}
+                    hideSystemMetrics={hideSystemMetrics}
+                    onManageColumns={onManageColumns}
+                    onColumnsVisibilityChange={onColumnsVisibilityChange}
+                    appName={appName}
                   />
                 )}
                 {onRowsChange && (
-                  <ControlPopover
-                    anchorOrigin={{
-                      vertical: 'bottom',
-                      horizontal: 'left',
-                    }}
-                    transformOrigin={{
-                      vertical: 'top',
-                      horizontal: 'left',
-                    }}
-                    anchor={({ onAnchorClick, opened }) => (
-                      <Button
-                        type='text'
-                        color='secondary'
-                        onClick={onAnchorClick}
-                        className={`Table__header__item ${
-                          opened ? 'opened' : ''
-                        }`}
-                      >
-                        <Icon name='eye-outline-hide' />
-                        <Text size={14} tint={100}>
-                          Hide Rows
-                        </Text>
-                      </Button>
-                    )}
-                    component={<HideRows toggleRowsVisibility={onRowsChange} />}
+                  <HideRowsPopover
+                    hiddenChartRows={hiddenChartRows}
+                    toggleRowsVisibility={onRowsChange}
                   />
                 )}
                 {onSort && (
                   <ControlPopover
                     anchorOrigin={{
-                      vertical: 'bottom',
+                      vertical: 'top',
                       horizontal: 'left',
                     }}
                     transformOrigin={{
-                      vertical: 'top',
+                      vertical: 'bottom',
                       horizontal: 'left',
                     }}
                     title='Sort table by:'
@@ -557,9 +724,10 @@ const Table = React.forwardRef(function Table(
                       <Button
                         type='text'
                         color='secondary'
+                        size='small'
                         onClick={onAnchorClick}
                         className={`Table__header__item ${
-                          opened ? 'opened' : ''
+                          opened || sortPopoverChanged ? 'opened' : ''
                         }`}
                       >
                         <Icon name='sort-outside' />
@@ -579,46 +747,29 @@ const Table = React.forwardRef(function Table(
                   />
                 )}
                 {onRowHeightChange && (
-                  <ControlPopover
-                    title='Select Table Row Height'
-                    anchorOrigin={{
-                      vertical: 'bottom',
-                      horizontal: 'left',
-                    }}
-                    transformOrigin={{
-                      vertical: 'top',
-                      horizontal: 'left',
-                    }}
-                    anchor={({ onAnchorClick, opened }) => (
-                      <Button
-                        type='text'
-                        color='secondary'
-                        onClick={onAnchorClick}
-                        className={`Table__header__item ${
-                          opened ? 'opened' : ''
-                        }`}
-                      >
-                        <Icon name='row-height' />
-                        <Text size={14} tint={100}>
-                          Row Height
-                        </Text>
-                      </Button>
-                    )}
-                    component={
-                      <RowHeight
-                        rowHeight={rowHeight}
-                        onRowHeightChange={onRowHeightChange}
-                      />
-                    }
+                  <RowHeightPopover
+                    rowHeight={rowHeight}
+                    onRowHeightChange={onRowHeightChange}
+                    appName={appName}
                   />
                 )}
               </div>
+              {onTableDiffShow && (
+                <Button
+                  size='small'
+                  variant='outlined'
+                  className='Table__header__item--diffBtn'
+                  disabled={isDiffButtonDisabled}
+                  onClick={onTableDiffShow}
+                >
+                  Show Table Diff
+                </Button>
+              )}
               {onExport && (
                 <div className='fac'>
                   <Button
                     fullWidth
                     variant='outlined'
-                    color='primary'
                     size='small'
                     onClick={onExport}
                     startIcon={<Icon fontSize={14} name='download' />}
@@ -630,80 +781,184 @@ const Table = React.forwardRef(function Table(
                 </div>
               )}
             </div>
+          ) : !isEmpty(selectedRows) && multiSelect ? (
+            <div className='Table__header selectedRowActionsContainer'>
+              <div className='selectedRowActionsContainer__selectedRowsCount'>
+                <Text size={14} tint={50}>
+                  {Object.keys(selectedRows).length} Selected
+                </Text>
+              </div>
+              {tableBulkActionsVisibility.delete && (
+                <div className='selectedRowActionsContainer__selectedItemsDelete'>
+                  <Button
+                    color='secondary'
+                    type='text'
+                    onClick={onToggleDeletePopup}
+                    className={`Table__header__item ${
+                      isOpenDeleteSelectedPopup ? 'opened' : ''
+                    }`}
+                  >
+                    <Icon name='delete' />
+                    <Text size={14} tint={100}>
+                      Delete
+                    </Text>
+                  </Button>
+                </div>
+              )}
+              {tableBulkActionsVisibility.unarchive && (
+                <div className='selectedRowActionsContainer__selectedItemsArchive'>
+                  <Button
+                    color='secondary'
+                    type='text'
+                    onClick={onToggleArchivePopup}
+                    className={`Table__header__item ${
+                      isOpenArchiveSelectedPopup ? 'opened' : ''
+                    }`}
+                  >
+                    <Icon name='archive' />
+                    <Text size={14} tint={100}>
+                      Archive
+                    </Text>
+                  </Button>
+                </div>
+              )}
+              {tableBulkActionsVisibility.archive && (
+                <div className='selectedRowActionsContainer__selectedItemsArchive'>
+                  <Button
+                    color='secondary'
+                    type='text'
+                    onClick={onToggleUnarchivePopup}
+                    className={`Table__header__item ${
+                      isOpenUnarchiveSelectedPopup ? 'opened' : ''
+                    }`}
+                  >
+                    <Icon name='unarchive' fontSize={18} />
+                    <Text size={14} tint={100}>
+                      Unarchive
+                    </Text>
+                  </Button>
+                </div>
+              )}
+            </div>
+          ) : (
+            ''
           )}
           <div
-            style={{ height: 'calc(100% - 40px)', overflow: 'auto' }}
+            style={{
+              height,
+              overflow: 'auto',
+              minHeight: minHeight || 'unset',
+            }}
             ref={tableContainerRef}
           >
             <AutoResizer>
               {({ width, height }) =>
                 custom ? (
                   <div style={{ width, height }}>
-                    <CustomTable
-                      expanded={expanded}
-                      alwaysVisibleColumns={alwaysVisibleColumns}
-                      rowHeightMode={rowHeight}
-                      updateColumns={onManageColumns}
-                      columnsWidths={columnsWidths}
-                      updateColumnsWidths={updateColumnsWidths}
-                      sortFields={sortFields}
-                      setSortFields={onSort}
-                      excludedFields={hiddenColumns}
-                      setExcludedFields={onColumnsVisibilityChange}
-                      hiddenRows={hiddenRows}
-                      data={rowData}
-                      columns={columnsData.filter((col) => !col.isHidden)}
-                      groups={groups}
-                      onGroupExpandToggle={onGroupExpandToggle}
-                      onRowHover={rowHoverHandler}
-                      onRowClick={rowClickHandler}
-                      {...props}
-                    />
+                    <ErrorBoundary>
+                      <CustomTable
+                        expanded={expanded}
+                        alwaysVisibleColumns={alwaysVisibleColumns}
+                        rowHeightMode={rowHeight}
+                        updateColumns={onManageColumns}
+                        columnsWidths={columnsWidths}
+                        updateColumnsWidths={updateColumnsWidths}
+                        sortFields={sortFields}
+                        setSortFields={onSort}
+                        excludedFields={hiddenColumns}
+                        setExcludedFields={onColumnsVisibilityChange}
+                        hiddenRows={hiddenRows}
+                        data={rowData}
+                        columns={columnsData.filter((col) => !col.isHidden)}
+                        onGroupExpandToggle={onGroupExpandToggle}
+                        onRowHover={rowHoverHandler}
+                        onRowClick={rowClickHandler}
+                        listWindow={listWindow}
+                        multiSelect={multiSelect}
+                        selectedRows={selectedRows || {}}
+                        onRowSelect={onRowSelect}
+                        columnsColorScales={columnsColorScales}
+                        onToggleColumnsColorScales={onToggleColumnsColorScales}
+                        {...props}
+                      />
+                    </ErrorBoundary>
                   </div>
                 ) : (
-                  <BaseTable
-                    ref={tableRef}
-                    classPrefix='BaseTable'
-                    columns={columnsData}
-                    data={rowData}
-                    frozenData={[]}
-                    width={width}
-                    height={height}
-                    fixed={fixed}
-                    rowKey='key'
-                    isScrolling
-                    headerHeight={headerHeight}
-                    rowHeight={rowHeight}
-                    footerHeight={0}
-                    defaultExpandedRowKeys={[]}
-                    expandColumnKey='#'
-                    rowProps={({ rowIndex }) => rowData[rowIndex]?.rowProps}
-                    sortBy={{}}
-                    useIsScrolling={false}
-                    overscanRowCount={1}
-                    onEndReachedThreshold={500}
-                    getScrollbarSize={() => null}
-                    ignoreFunctionInColumnCompare={false}
-                    onScroll={() => null}
-                    onRowsRendered={() => null}
-                    onScrollbarPresenceChange={() => null}
-                    onRowExpand={() => null}
-                    onExpandedRowsChange={() => null}
-                    onColumnSort={() => null}
-                    onColumnResize={() => null}
-                    onColumnResizeEnd={() => null}
-                    onRowHover={onRowHover}
-                    onRowClick={onRowClick}
-                  />
+                  <ErrorBoundary>
+                    <BaseTable
+                      ref={tableRef}
+                      classPrefix='BaseTable'
+                      columns={columnsData}
+                      data={rowData}
+                      frozenData={[]}
+                      width={width}
+                      height={height}
+                      fixed={fixed}
+                      rowKey='key'
+                      isScrolling
+                      headerHeight={headerHeight}
+                      rowHeight={rowHeight}
+                      estimatedRowHeight={estimatedRowHeight}
+                      footerHeight={0}
+                      defaultExpandedRowKeys={[]}
+                      expandColumnKey='#'
+                      rowProps={({ rowIndex }) => rowData[rowIndex]?.rowProps}
+                      sortBy={{}}
+                      useIsScrolling={false}
+                      overscanRowCount={1}
+                      onEndReachedThreshold={500}
+                      getScrollbarSize={() => null}
+                      ignoreFunctionInColumnCompare={false}
+                      onScroll={() => null}
+                      onRowsRendered={() => null}
+                      onScrollbarPresenceChange={() => null}
+                      onRowExpand={() => null}
+                      onExpandedRowsChange={() => null}
+                      onColumnSort={() => null}
+                      onColumnResize={() => null}
+                      onColumnResizeEnd={() => null}
+                      onRowHover={onRowHover}
+                      onRowClick={onRowClick}
+                      disableRowClick={disableRowClick}
+                    />
+                  </ErrorBoundary>
                 )
               }
             </AutoResizer>
           </div>
+          <ArchiveModal
+            opened={isOpenArchiveSelectedPopup}
+            onClose={onToggleArchivePopup}
+            selectedRows={selectedRows}
+            archiveMode
+            onRowSelect={onRowSelect}
+            archiveRuns={archiveRuns}
+          />
+          <ArchiveModal
+            opened={isOpenUnarchiveSelectedPopup}
+            onClose={onToggleUnarchivePopup}
+            selectedRows={selectedRows}
+            onRowSelect={onRowSelect}
+            archiveRuns={archiveRuns}
+          />
+          <DeleteModal
+            opened={isOpenDeleteSelectedPopup}
+            onClose={onToggleDeletePopup}
+            selectedRows={selectedRows}
+            onRowSelect={onRowSelect}
+            deleteRuns={deleteRuns}
+          />
         </div>
       ) : (
-        <EmptyComponent size='big' content={emptyText} />
+        <IllustrationBlock
+          page={illustrationConfig?.page || 'metrics'}
+          type={illustrationConfig?.type || IllustrationsEnum.EmptyData}
+          size={illustrationConfig?.size || 'xLarge'}
+          content={illustrationConfig?.content || ''}
+          title={illustrationConfig?.title || ''}
+        />
       )}
-    </BusyLoaderWrapper>
+    </ErrorBoundary>
   );
 });
 
@@ -711,12 +966,9 @@ function propsComparator(
   prevProps: ITableProps,
   nextProps: ITableProps,
 ): boolean {
-  // add custom here checks here
-  if (prevProps.isLoading !== nextProps.isLoading) {
-    return false;
-  }
+  // Add custom here checks here
 
-  if (prevProps.data !== nextProps.data) {
+  if (prevProps.isLoading !== nextProps.isLoading) {
     return false;
   }
 
@@ -729,6 +981,38 @@ function propsComparator(
   }
 
   if (prevProps.resizeMode !== nextProps.resizeMode) {
+    return false;
+  }
+
+  if (prevProps.columnsWidths !== nextProps.columnsWidths) {
+    return false;
+  }
+
+  if (prevProps.selectedRows !== nextProps.selectedRows) {
+    return false;
+  }
+
+  if (prevProps.hiddenColumns !== nextProps.hiddenColumns) {
+    return false;
+  }
+
+  if (prevProps.hiddenChartRows !== nextProps.hiddenChartRows) {
+    return false;
+  }
+
+  if (prevProps.columnsOrder !== nextProps.columnsOrder) {
+    return false;
+  }
+
+  if (prevProps.focusedState?.active !== nextProps.focusedState?.active) {
+    return false;
+  }
+
+  if (prevProps.columnsColorScales !== nextProps.columnsColorScales) {
+    return false;
+  }
+
+  if (!isEqual(prevProps.illustrationConfig, nextProps.illustrationConfig)) {
     return false;
   }
 

@@ -1,6 +1,5 @@
-import * as analytics from 'services/analytics';
+import { GroupNameEnum } from 'config/grouping/GroupingPopovers';
 
-import { GroupNameType } from 'types/services/models/metrics/metricsAppModel';
 import { IModel, State } from 'types/services/models/model';
 import { IAppModelConfig } from 'types/services/models/explorer/createAppModel';
 
@@ -11,7 +10,7 @@ export default function onGroupingReset<M extends State>({
   updateModelData,
   setAggregationEnabled,
 }: {
-  groupName: GroupNameType;
+  groupName: GroupNameEnum;
   model: IModel<M>;
   appName: string;
   updateModelData: (
@@ -37,5 +36,4 @@ export default function onGroupingReset<M extends State>({
     }
     updateModelData(configData, true);
   }
-  analytics.trackEvent(`[${appName}Explorer] Reset grouping`);
 }

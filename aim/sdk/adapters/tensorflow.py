@@ -1,54 +1,46 @@
 from typing import Optional
-from distutils.version import LooseVersion
 
 from aim.sdk.run import Run
-from aim.sdk.adapters.keras_mixins import (
-    get_keras_tracker_callback,
-    TrackerKerasCallbackMetricsEpochEndMixin,
-)
+from aim.sdk.adapters.keras_mixins import TrackerKerasCallbackMetricsEpochEndMixin
+from aim.ext.resource.configs import DEFAULT_SYSTEM_TRACKING_INT
+
+try:
+    from tensorflow.keras.callbacks import Callback
+except ImportError:
+    raise RuntimeError(
+        'This contrib module requires tensorflow to be installed. '
+        'Please install it with command: \n pip install tensorflow'
+    )
 
 
-class AimCallback(object):
-    __tf1_keras_tracker_callback_cls = None
-    __tf2_keras_tracker_callback_cls = None
+class AimCallback(TrackerKerasCallbackMetricsEpochEndMixin, Callback):
+    def __init__(self, repo: Optional[str] = None,
+                 experiment: Optional[str] = None,
+                 system_tracking_interval: int = DEFAULT_SYSTEM_TRACKING_INT,
+                 log_system_params: bool = True,):
+        super(Callback, self).__init__()
 
-    @staticmethod
-    def __new__(cls, *args, **kwargs):
-        keras_callback_cls = cls.__get_callback_cls()
-        return keras_callback_cls(*args, **kwargs)
+        self._system_tracking_interval = system_tracking_interval
+        self._log_system_params = log_system_params
 
-    @classmethod
-    def __get_callback_cls(cls):
-        import tensorflow
-        if LooseVersion(tensorflow.__version__) < LooseVersion('2.0.0'):
-            tf_keras_callback_cls = cls.__get_tf1_keras_tracker_callback_cls()
+        if repo is None and experiment is None:
+            self._run = Run(system_tracking_interval=self._system_tracking_interval,
+                            log_system_params=self._log_system_params,)
         else:
-            tf_keras_callback_cls = cls.__get_tf2_keras_tracker_callback_cls()
-        return tf_keras_callback_cls
+            self._run = Run(repo=repo, experiment=experiment,
+                            system_tracking_interval=self._system_tracking_interval,
+                            log_system_params=self._log_system_params,)
 
-    @classmethod
-    def __get_tf1_keras_tracker_callback_cls(cls):
-        if cls.__tf1_keras_tracker_callback_cls is None:
-            from tensorflow.keras.callbacks import Callback
+        self._run_hash = self._run.hash
+        self._repo_path = repo
 
-            cls.__tf1_keras_tracker_callback_cls = get_keras_tracker_callback(
-                Callback, [
-                    TrackerKerasCallbackMetricsEpochEndMixin,
-                ])
-
-        return cls.__tf1_keras_tracker_callback_cls
-
-    @classmethod
-    def __get_tf2_keras_tracker_callback_cls(cls):
-        if cls.__tf2_keras_tracker_callback_cls is None:
-            from tensorflow.keras.callbacks import Callback
-
-            cls.__tf2_keras_tracker_callback_cls = get_keras_tracker_callback(
-                Callback, [
-                    TrackerKerasCallbackMetricsEpochEndMixin,
-                ])
-
-        return cls.__tf2_keras_tracker_callback_cls
+    @property
+    def experiment(self) -> Run:
+        if not self._run:
+            self._run = Run(self._run_hash,
+                            repo=self._repo_path,
+                            system_tracking_interval=self._system_tracking_interval,)
+        return self._run
 
     @classmethod
     def metrics(cls, repo: Optional[str] = None,
@@ -57,10 +49,14 @@ class AimCallback(object):
         # Keep `metrics` method for backward compatibility
         return cls(repo, experiment, run)
 
-    def __init__(self, repo: Optional[str] = None,
-                 experiment: Optional[str] = None,
-                 run: Optional[Run] = None):
-        pass
+    def close(self) -> None:
+        if self._run:
+            self._run.close()
+            del self._run
+            self._run = None
+
+    def __del__(self):
+        self.close()
 
 
 # Keep `AimTracker` for backward compatibility

@@ -7,9 +7,9 @@ const getTypesBaseCode = (name) => `
 const getComponentBaseCode = (name) => `
     import React from 'react';
     import { Text } from 'components/kit';
-    import { I${name}Props } from './types.d';
+    import { I${name}Props } from './${name}.d';
     
-    import './styles.scss';
+    import './${name}.scss';
     
     function ${name}({
       title,
@@ -29,8 +29,7 @@ const getComponentBaseCode = (name) => `
 const getExportsBaseCode = (name) => `
   import ${name} from './${name}';
   
-  export * from './types.d';
-  export * from './${name}';
+  export * from './${name}.d';
   
   export default ${name};
 `;

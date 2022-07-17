@@ -7,7 +7,7 @@
   justify-content: center;
   height: 1.75rem;
   border-radius: 0.375rem;
-  font-weight: 500;
+  font-weight: $font-500;
   white-space: nowrap;
   vertical-align: middle;
   text-decoration: none;
@@ -16,6 +16,9 @@
     flex-wrap: nowrap;
     white-space: nowrap;
     line-height: 1rem;
+    overflow: hidden;
+    max-width: 100%;
+    text-overflow: ellipsis;
   }
   i {
     display: flex;
@@ -43,6 +46,10 @@
   &__select {
     margin-top: $space-xxxs;
     margin-right: $space-xxxs;
+  }
+  &__disabled {
+    pointer-events: none;
+    opacity: 0.5;
   }
   &__default {
     color: #414b6d;
@@ -93,7 +100,7 @@
   }
 
   &__xSmall {
-    height: 1.25rem;
+    height: 1.125rem;
   }
   &__medium {
     height: 1.5rem;

@@ -3,6 +3,10 @@
 .Runs__section {
   height: 100vh;
   overflow: hidden;
+  &__appBarContainer {
+    display: flex;
+    flex-direction: column;
+  }
   .Runs__loader {
     flex-direction: column;
     justify-content: space-between;
@@ -24,10 +28,14 @@
   }
 
   .Runs__table__container {
-    -webkit-box-flex: 0.5;
-    -ms-flex: 0.5 1 0px;
-    flex: 0.5 1 0;
-    height: 100%;
+    display: flex;
+    position: relative;
+    flex-direction: column;
+    flex: 1 1 100%;
+    max-height: calc(100% - #{toRem(105px)});
+    .ProgressBar {
+      padding-bottom: toRem(105px);
+    }
   }
 }
 
@@ -56,11 +64,11 @@
           padding-right: 0.5625rem;
         }
         .MuiInputBase-input {
-          font-weight: 500;
+          font-weight: $font-500;
           font-size: $text-sm;
           color: #414b6d;
           &::placeholder {
-            font-weight: 500;
+            font-weight: $font-500;
             font-size: $text-sm;
             color: #606986;
             opacity: 1;
@@ -75,14 +83,14 @@
           padding-right: 9px;
         }
         .MuiButton-label {
-          font-weight: 500;
+          font-weight: $font-500;
           font-size: $text-sm;
           justify-content: flex-start;
         }
       }
     }
     &__runListBox {
-      height: 90%;
+      flex: 1;
       position: relative;
       &__titleBox {
         position: relative;
@@ -102,7 +110,7 @@
           bottom: 0;
         }
         &__title {
-          font-weight: 600;
+          font-weight: $font-600;
           font-size: $text-sm;
         }
       }
@@ -116,7 +124,7 @@
         justify-content: center;
         align-items: center;
         &__title {
-          font-weight: 600;
+          font-weight: $font-600;
           font-size: $text-sm;
         }
       }

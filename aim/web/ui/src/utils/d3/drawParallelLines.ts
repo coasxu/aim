@@ -1,14 +1,14 @@
-import { cloneDeep, isNil } from 'lodash-es';
+import _ from 'lodash-es';
 
 import {
-  IDrawParallelLinesProps,
+  IDrawParallelLinesArgs,
   InitialPathDataType,
   ILineDataType,
-  IDrawParallelLineProps,
-  ILineRendererProps,
-  IGetColorIndicatorScaleValueProps,
+  ILineRendererArgs,
+  IGetColorIndicatorScaleValueArgs,
+  IDrawParallelLineArgs,
 } from 'types/utils/d3/drawParallelLines';
-import { IGetAxisScale } from 'types/utils/d3/getAxisScale';
+import { IAxisScale } from 'types/utils/d3/getAxisScale';
 
 import lineGenerator from './lineGenerator';
 
@@ -20,6 +20,8 @@ const initialPathData: InitialPathDataType = {
 };
 
 function drawParallelLines({
+  index,
+  nameKey,
   linesNodeRef,
   attributesRef,
   dimensions,
@@ -28,12 +30,15 @@ function drawParallelLines({
   data,
   attributesNodeRef,
   isVisibleColorIndicator,
-}: IDrawParallelLinesProps) {
+}: IDrawParallelLinesArgs) {
   if (!linesNodeRef?.current || !linesRef?.current || !attributesRef?.current) {
     return;
   }
   const keysOfDimensions: string[] = Object.keys(dimensions);
+
   linesRenderer({
+    index,
+    nameKey,
     data,
     keysOfDimensions,
     curveInterpolation,
@@ -41,10 +46,13 @@ function drawParallelLines({
     attributesRef,
     isVisibleColorIndicator,
   });
+
   linesRef.current.updateLines = function (updatedData: ILineDataType[]) {
     linesNodeRef.current?.selectAll('*')?.remove();
     attributesNodeRef.current?.selectAll('*')?.remove();
     linesRenderer({
+      index,
+      nameKey,
       data: updatedData,
       keysOfDimensions,
       curveInterpolation,
@@ -56,24 +64,28 @@ function drawParallelLines({
 }
 
 function linesRenderer({
+  index,
+  nameKey,
   data,
   keysOfDimensions,
   curveInterpolation,
   linesNodeRef,
   attributesRef,
   isVisibleColorIndicator,
-}: ILineRendererProps) {
+}: ILineRendererArgs) {
   data.forEach(({ values: line, key, color, dasharray }: ILineDataType) => {
-    const arrayOfPathData: InitialPathDataType[] = [cloneDeep(initialPathData)];
+    const arrayOfPathData: InitialPathDataType[] = [
+      _.cloneDeep(initialPathData),
+    ];
     let pathDataArrayIndex: number = 0;
     for (let i = 0; i < keysOfDimensions.length; i++) {
       const keyOfDimension: string = keysOfDimensions[i];
-      if (isNil(line[keyOfDimension])) {
+      if (_.isNil(line[keyOfDimension])) {
         if (i === 0) continue;
         let nextStep: number = 1;
         while (
           keysOfDimensions[i + nextStep] &&
-          isNil(line[keysOfDimensions[i + nextStep]])
+          _.isNil(line[keysOfDimensions[i + nextStep]])
         ) {
           nextStep++;
         }
@@ -95,7 +107,8 @@ function linesRenderer({
             isEmpty: false,
             isDotted: true,
           };
-          arrayOfPathData[pathDataArrayIndex + 2] = cloneDeep(initialPathData);
+          arrayOfPathData[pathDataArrayIndex + 2] =
+            _.cloneDeep(initialPathData);
           pathDataArrayIndex = pathDataArrayIndex + 2;
         }
         i = i + nextStep - 1;
@@ -110,6 +123,8 @@ function linesRenderer({
     arrayOfPathData.forEach((pathData) => {
       if (!pathData.isEmpty) {
         drawParallelLine({
+          index,
+          nameKey,
           linesNodeRef,
           attributesRef,
           curveInterpolation,
@@ -134,6 +149,8 @@ function linesRenderer({
 }
 
 function drawParallelLine({
+  index,
+  nameKey,
   linesNodeRef,
   attributesRef,
   dimensionList,
@@ -143,10 +160,11 @@ function drawParallelLine({
   isDotted,
   color,
   key,
-}: IDrawParallelLineProps) {
+}: IDrawParallelLineArgs) {
   if (!linesNodeRef.current) {
     return;
   }
+
   linesNodeRef.current
     .append('path')
     .lower()
@@ -157,7 +175,7 @@ function drawParallelLine({
       ]),
     ])
     .attr('id', `Line-${key}`)
-    .attr('clip-path', `url(#lines-rect-clip-${0})`)
+    .attr('clip-path', `url(#${nameKey}-lines-rect-clip-${index})`)
     .attr(
       'd',
       lineGenerator(
@@ -178,10 +196,10 @@ function getColorIndicatorScaleValue({
   keysOfDimensions,
   yColorIndicatorScale,
   yScale,
-}: IGetColorIndicatorScaleValueProps) {
+}: IGetColorIndicatorScaleValueArgs) {
   const lastKeyOfDimension: string =
     keysOfDimensions[keysOfDimensions.length - 1];
-  const lastYScale: IGetAxisScale = yScale[lastKeyOfDimension];
+  const lastYScale: IAxisScale = yScale[lastKeyOfDimension];
 
   return yColorIndicatorScale(lastYScale(line[lastKeyOfDimension]) || 0);
 }

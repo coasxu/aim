@@ -1,22 +1,23 @@
 import { HighlightEnum } from 'components/HighlightModesPopover/HighlightModesPopover';
 
-import { IDrawLinesProps } from 'types/utils/d3/drawLines';
-import { IProcessedData } from 'types/utils/d3/processData';
-import { IGetAxisScale } from 'types/utils/d3/getAxisScale';
-import { IAggregatedData } from 'types/services/models/metrics/metricsAppModel';
-import { ILine } from 'types/components/LineChart/LineChart';
+import { IDrawLinesArgs } from 'types/utils/d3/drawLines';
+import {
+  IProcessedAggrData,
+  IProcessedData,
+} from 'types/utils/d3/processLineChartData';
+import { IAxisScale } from 'types/utils/d3/getAxisScale';
 
 import { AggregationAreaMethods } from 'utils/aggregateGroupData';
-import { toQuadrupleData, toTupleData } from 'utils/toFormatData';
 
 import lineGenerator from './lineGenerator';
 import areaGenerator from './areaGenerator';
 
 import { CurveEnum } from './';
 
-function drawLines(props: IDrawLinesProps): void {
+function drawLines(args: IDrawLinesArgs): void {
   const {
     index,
+    nameKey,
     xScale,
     yScale,
     linesRef,
@@ -24,20 +25,34 @@ function drawLines(props: IDrawLinesProps): void {
     curveInterpolation,
     highlightMode,
     aggregationConfig,
-  } = props;
+    processedData,
+    processedAggrData,
+    readOnly = false,
+  } = args;
 
   if (!linesNodeRef?.current) {
     return;
   }
 
-  linesRef.current.updateLinesScales = function (
-    xScale: IGetAxisScale,
-    yScale: IGetAxisScale,
+  linesRef.current.updateScales = function (
+    xScale: IAxisScale,
+    yScale: IAxisScale,
     curve?: CurveEnum,
   ): void {
     linesNodeRef.current
       .selectAll('.Line')
       .attr('d', lineGenerator(xScale, yScale, curve));
+
+    if (!readOnly) {
+      linesNodeRef.current
+        ?.selectAll('.inProgressLineIndicator')
+        .attr('cx', (d: IProcessedData) => {
+          return xScale(d.data[d.data.length - 1][0]);
+        })
+        .attr('cy', (d: IProcessedData) => yScale(d.data[d.data.length - 1][1]))
+        .attr('r', 2)
+        .raise();
+    }
   };
 
   linesRef.current.updateLines = function (data: IProcessedData[]): void {
@@ -46,28 +61,47 @@ function drawLines(props: IDrawLinesProps): void {
       .data(data)
       .join('path')
       .attr('class', `Line ${aggregationConfig?.isApplied ? 'aggregated' : ''}`)
-      .attr('id', (line: ILine) => `Line-${line.key}`)
-      .attr('clip-path', `url(#lines-rect-clip-${index})`)
-      .attr('groupKey', (line: ILine) => line.groupKey)
+      .attr('id', (d: IProcessedData) => `Line-${d.key}`)
+      .attr('clip-path', `url(#${nameKey}-lines-rect-clip-${index})`)
+      .attr('groupKey', (d: IProcessedData) => d.groupKey)
       .attr(
         'data-selector',
-        (line: ILine) =>
-          `Line-Sel-${highlightMode}-${line.selectors[highlightMode]}`,
+        (d: IProcessedData) =>
+          `Line-Sel-${highlightMode}-${d.selectors?.[highlightMode]}`,
       )
       .style('fill', 'none')
-      .style('stroke', (line: ILine) => line.color)
-      .style('stroke-dasharray', (line: ILine) => line.dasharray)
-      .data(
-        data.map((line: IProcessedData) =>
-          toTupleData(line.data.xValues, line.data.yValues),
-        ),
-      )
+      .style('stroke', (d: IProcessedData) => d.color)
+      .style('stroke-dasharray', (d: IProcessedData) => d.dasharray)
+      .data(data.map((d: IProcessedData) => d.data))
       .attr('d', lineGenerator(xScale, yScale, curveInterpolation));
+
+    if (!readOnly) {
+      const filteredData =
+        data?.filter((d: IProcessedData) => d?.run?.props?.active) ?? [];
+      linesNodeRef.current
+        ?.selectAll('.inProgressLineIndicator')
+        .data(filteredData)
+        .join('circle')
+        .attr(
+          'data-selector',
+          (d: IProcessedData) =>
+            `Line-Sel-${highlightMode}-${d.selectors?.[highlightMode]}`,
+        )
+        .attr('clip-path', `url(#${nameKey}-circles-rect-clip-${index})`)
+        .attr('class', 'inProgressLineIndicator')
+        .style('stroke', (d: IProcessedData) => d.color)
+        .style('fill', (d: IProcessedData) => d.color)
+        .attr('id', (d: IProcessedData) => `inProgressLineIndicator-${d.key}`)
+        .attr('cx', (d: IProcessedData) => xScale(d.data[d.data.length - 1][0]))
+        .attr('cy', (d: IProcessedData) => yScale(d.data[d.data.length - 1][1]))
+        .attr('r', 2)
+        .raise();
+    }
   };
 
   linesRef.current.updateAggregatedAreasScales = function (
-    xScale: IGetAxisScale,
-    yScale: IGetAxisScale,
+    xScale: IAxisScale,
+    yScale: IAxisScale,
   ): void {
     linesNodeRef.current
       .selectAll('.AggrArea')
@@ -75,33 +109,24 @@ function drawLines(props: IDrawLinesProps): void {
   };
 
   linesRef.current.updateAggregatedAreas = function (
-    data: IAggregatedData[],
+    data: IProcessedAggrData[],
   ): void {
     linesNodeRef.current
       .selectAll('.AggrArea')
       .data(data)
       .join('path')
       .attr('class', 'AggrArea')
-      .attr('id', (aggrData: IAggregatedData) => `AggrArea-${aggrData.key}`)
-      .attr('clip-path', `url(#lines-rect-clip-${index})`)
-      .attr('fill', (aggrData: IAggregatedData) => aggrData.color)
+      .attr('id', (d: IProcessedAggrData) => `AggrArea-${d.key}`)
+      .attr('clip-path', `url(#${nameKey}-lines-rect-clip-${index})`)
+      .attr('fill', (d: IProcessedAggrData) => d.color)
       .attr('fill-opacity', '0.3')
-      .data(
-        data.map((aggrData: IAggregatedData) =>
-          toQuadrupleData(
-            aggrData.area.max?.xValues || [],
-            aggrData.area.min?.xValues || [],
-            aggrData.area.max?.yValues || [],
-            aggrData.area.min?.yValues || [],
-          ),
-        ),
-      )
+      .data(data.map((d: IProcessedAggrData) => d?.area || []))
       .attr('d', areaGenerator(xScale, yScale));
   };
 
   linesRef.current.updateAggregatedLinesScales = function (
-    xScale: IGetAxisScale,
-    yScale: IGetAxisScale,
+    xScale: IAxisScale,
+    yScale: IAxisScale,
     curve?: CurveEnum,
   ): void {
     linesNodeRef.current
@@ -110,42 +135,32 @@ function drawLines(props: IDrawLinesProps): void {
   };
 
   linesRef.current.updateAggregatedLines = function (
-    data: IAggregatedData[],
+    data: IProcessedAggrData[],
   ): void {
     linesNodeRef.current
       .selectAll('.AggrLine')
       .data(data)
       .join('path')
       .attr('class', 'AggrLine')
-      .attr('id', (aggrData: IAggregatedData) => `AggrLine-${aggrData.key}`)
-      .attr('clip-path', `url(#lines-rect-clip-${index})`)
+      .attr('id', (d: IProcessedAggrData) => `AggrLine-${d.key}`)
+      .attr('clip-path', `url(#${nameKey}-lines-rect-clip-${index})`)
       .style('fill', 'none')
-      .style('stroke', (aggrData: IAggregatedData) => aggrData.color)
-      .style(
-        'stroke-dasharray',
-        (aggrData: IAggregatedData) => aggrData.dasharray,
-      )
-      .data(
-        data.map((aggrData: IAggregatedData) =>
-          toTupleData(
-            aggrData.line?.xValues || [],
-            aggrData.line?.yValues || [],
-          ),
-        ),
-      )
+      .style('stroke', (d: IProcessedAggrData) => d.color)
+      .style('stroke-dasharray', (d: IProcessedAggrData) => d.dasharray)
+      .data(data.map((d: IProcessedAggrData) => d.line || []))
       .attr('d', lineGenerator(xScale, yScale, curveInterpolation));
   };
 
   if (aggregationConfig?.isApplied) {
     if (aggregationConfig.methods.area !== AggregationAreaMethods.NONE) {
-      linesRef.current.updateAggregatedAreas(props.aggregatedData);
+      linesRef.current.updateAggregatedAreas(processedAggrData);
     }
-    linesRef.current.updateAggregatedLines(props.aggregatedData);
+    linesRef.current.updateAggregatedLines(processedAggrData);
     if (highlightMode !== HighlightEnum.Off) {
-      linesRef.current.updateLines(props.data);
+      linesRef.current.updateLines(processedData);
     }
   } else {
-    linesRef.current.updateLines(props.data);
+    linesRef.current.updateLines(processedData);
   }
 }
 

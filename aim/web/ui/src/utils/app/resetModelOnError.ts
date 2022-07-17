@@ -1,3 +1,5 @@
+import { RequestStatusEnum } from 'config/enums/requestStatusEnum';
+
 import { IModel, State } from 'types/services/models/model';
 
 export default function resetModelOnError<M extends State>({
@@ -15,14 +17,16 @@ export default function resetModelOnError<M extends State>({
     aggregatedData: [],
     tableData: [],
     tableColumns: [],
-    requestIsPending: false,
+    requestStatus: RequestStatusEnum.BadRequest,
   });
 
   setTimeout(() => {
     const tableRef: any = model?.getState()?.refs?.tableRef;
-    tableRef.current?.updateData({
-      newData: [],
-      newColumns: [],
-    });
+    if (tableRef?.current) {
+      tableRef?.current?.updateData({
+        newData: [],
+        newColumns: [],
+      });
+    }
   }, 0);
 }

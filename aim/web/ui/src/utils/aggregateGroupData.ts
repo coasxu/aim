@@ -8,6 +8,7 @@ import { IAggregateGroupDataParams } from 'types/utils/aggregateGroupData';
 import { IMetric } from 'types/services/models/metrics/metricModel';
 
 import { ScaleEnum } from './d3';
+import { getValuesMedian } from './getValuesMedian';
 
 export enum AggregationAreaMethods {
   NONE = 0,
@@ -174,7 +175,14 @@ export function aggregateGroupData({
       case AggregationAreaMethods.STD_DEV:
       case AggregationAreaMethods.STD_ERR:
       case AggregationAreaMethods.CONF_INT:
-        let stepValues: { [key: number]: { min: number; max: number } } = {};
+        let stepValues: {
+          [key: number]: {
+            min: number;
+            max: number;
+            stdDevValue?: number;
+            stdErrValue?: number;
+          };
+        } = {};
         xValues.forEach((x) => {
           const mean = _.sum(yValuesPerX[x]) / yValuesPerX[x].length;
 
@@ -188,12 +196,14 @@ export function aggregateGroupData({
             stepValues[x] = {
               min: mean - stdDevValue,
               max: mean + stdDevValue,
+              stdDevValue,
             };
           } else if (methods.area === AggregationAreaMethods.STD_ERR) {
             const stdErrValue = stdDevValue / Math.sqrt(yValuesPerX[x].length);
             stepValues[x] = {
               min: mean - stdErrValue,
               max: mean + stdErrValue,
+              stdErrValue,
             };
           } else if (methods.area === AggregationAreaMethods.CONF_INT) {
             const zValue = 1.96; // for 95% confidence level
@@ -214,6 +224,20 @@ export function aggregateGroupData({
           xValues: xValues,
           yValues: xValues.map((x) => stepValues[x].max) as number[],
         };
+
+        if (methods.area === AggregationAreaMethods.STD_DEV) {
+          area.stdDevValue = {
+            xValues: xValues,
+            yValues: xValues.map((x) => stepValues[x].stdDevValue) as number[],
+          };
+        }
+
+        if (methods.area === AggregationAreaMethods.STD_ERR) {
+          area.stdErrValue = {
+            xValues: xValues,
+            yValues: xValues.map((x) => stepValues[x].stdErrValue) as number[],
+          };
+        }
         break;
       default:
     }
@@ -228,14 +252,4 @@ export function aggregateGroupData({
   }
 
   return groupsWithAggregation;
-}
-
-function getValuesMedian(values: number[]): number {
-  values.sort((a, b) => a - b);
-  const length = values.length;
-  if (length % 2 === 0) {
-    return (values[length / 2] + values[length / 2 - 1]) / 2;
-  }
-
-  return values[(length - 1) / 2];
 }

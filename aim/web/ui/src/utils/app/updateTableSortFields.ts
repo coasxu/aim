@@ -1,13 +1,15 @@
 import { isEmpty } from 'lodash-es';
 
+import { ANALYTICS_EVENT_KEYS } from 'config/analytics/analyticsKeysMap';
+
 import * as analytics from 'services/analytics';
 
-import { SortField } from 'types/services/models/metrics/metricsAppModel';
 import { IModel, State } from 'types/services/models/model';
 import { IAppModelConfig } from 'types/services/models/explorer/createAppModel';
 
 import { encode } from 'utils/encoder/encoder';
 import { setItem } from 'utils/storage';
+import { SortFields } from 'utils/getSortedFields';
 
 export default function updateSortFields<M extends State>({
   sortFields,
@@ -15,7 +17,7 @@ export default function updateSortFields<M extends State>({
   appName,
   updateModelData,
 }: {
-  sortFields: SortField[];
+  sortFields: SortFields;
   model: IModel<M>;
   appName: string;
   updateModelData: (
@@ -39,8 +41,9 @@ export default function updateSortFields<M extends State>({
     updateModelData(config);
   }
   analytics.trackEvent(
-    `[${appName}Explorer][Table] ${
+    // @ts-ignore
+    `${ANALYTICS_EVENT_KEYS[appName].table.changeSorting} ${
       isEmpty(sortFields) ? 'Reset' : 'Apply'
-    } table sorting by a key`,
+    }`,
   );
 }

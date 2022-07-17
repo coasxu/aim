@@ -1,11 +1,34 @@
 import React from 'react';
 import styled from 'styled-components';
+import classNames from 'classnames';
+
+import ErrorBoundary from 'components/ErrorBoundary/ErrorBoundary';
 
 import { Icon } from '../index';
 
 import { IBadgeProps } from './Badge.d';
 
 import './Badge.scss';
+
+const getBadgeColor: (color: string) => string = (color: string): string =>
+  `background-color: ${color}1a;
+   color: ${color}; 
+   border: 0.0625rem solid ${color};`;
+
+const BadgeContainer: any = styled.div`
+  font-family: ${(props: any) =>
+    props.monospace ? '"Inconsolata", monospace' : 'Inter, sans-serif'};
+  ${({ color }) => color && getBadgeColor(color)};
+  font-variation-settings: ${(props: any) => props.monospace && "'wdth' 82"};
+`;
+
+const BadgeIcon = styled.span`
+  ${(props) =>
+    props.color &&
+    `&:hover {
+    background-color: ${props.color}2a}
+  }`}
+`;
 
 /**
  * @property {string} id - id of Badge
@@ -19,23 +42,6 @@ import './Badge.scss';
  * @property {function} onDelete - delete callBack function
  * @property {function}  onClick - handling on Badge click function
  */
-
-const BadgeContainer = styled.div`
-  ${(props) =>
-    props.color &&
-    `background-color: ${props.color}1a;
-  color: ${props.color};
-  border: 0.0625rem solid ${props.color};`}
-`;
-
-const BadgeIcon = styled.span`
-  ${(props) =>
-    props.color &&
-    `&:hover {
-    background-color: ${props.color}2a}
-  }`}
-`;
-
 function Badge({
   id,
   label,
@@ -45,41 +51,50 @@ function Badge({
   className = '',
   startIcon,
   maxWidth = '100%',
+  monospace = false,
+  disabled = false,
   selectBadge,
   onDelete,
   onClick,
 }: IBadgeProps): React.FunctionComponentElement<React.ReactNode> {
   return (
-    <BadgeContainer
-      color={color}
-      id={id}
-      style={{
-        ...style,
-        maxWidth,
-      }}
-      role='button'
-      className={`Badge Badge${'__' + size} ${className} ${
-        color ? '' : 'Badge__default'
-      } ${selectBadge ? 'Badge__select' : ''}`}
-      data-name={label}
-      onClick={onClick}
-    >
-      {startIcon && (
-        <span className='Badge__startIcon'>
-          <Icon color={color} name={startIcon} />
-        </span>
-      )}
-      <span className='Badge__label'>{label}</span>
-      {onDelete && (
-        <BadgeIcon
-          color={color}
-          onClick={() => onDelete(label)}
-          className='Badge__deleteIcon'
-        >
-          <Icon color={color} name='close' />
-        </BadgeIcon>
-      )}
-    </BadgeContainer>
+    <ErrorBoundary>
+      <BadgeContainer
+        id={id}
+        color={color}
+        style={{
+          ...style,
+          maxWidth,
+        }}
+        role='button'
+        monospace={monospace}
+        className={classNames('Badge', {
+          [`Badge${'__' + size}`]: !!size,
+          [className]: !!className,
+          Badge__default: !color,
+          Badge__select: !!selectBadge,
+          Badge__disabled: !!disabled,
+        })}
+        data-name={label}
+        onClick={onClick}
+      >
+        {startIcon && (
+          <span className='Badge__startIcon'>
+            <Icon color={color} name={startIcon} />
+          </span>
+        )}
+        <span className='Badge__label'>{label}</span>
+        {onDelete && (
+          <BadgeIcon
+            color={color}
+            onClick={() => onDelete(label)}
+            className='Badge__deleteIcon'
+          >
+            <Icon color={color} name='close' />
+          </BadgeIcon>
+        )}
+      </BadgeContainer>
+    </ErrorBoundary>
   );
 }
 

@@ -9,8 +9,16 @@
 
   &__container__select {
     padding: 1rem;
+    &__selectedFieldsContainer {
+      max-height: toRem(110px);
+      overflow: auto;
+      width: 100%;
+    }
   }
 
+  &__advanced__component {
+    border-top: $border-main;
+  }
   &__toggleMode__div {
     display: flex;
     flex-direction: column;
@@ -46,15 +54,22 @@
     }
   }
 
-  &__advanced__component {
-    padding-bottom: 0.875rem;
-  }
-
   .MuiAccordionSummary-root {
     min-height: unset;
     height: 2.125rem;
     border-bottom: $border-main;
     padding: 0 1rem;
+  }
+  &__option {
+    display: flex;
+    width: 100%;
+    overflow: hidden;
+    &__label {
+      margin-left: $space-xs;
+      max-width: 100%;
+      overflow: hidden;
+      word-break: break-all;
+    }
   }
 }
 

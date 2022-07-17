@@ -1,8 +1,20 @@
-import { IGroupingSelectOption } from 'types/services/models/metrics/metricsAppModel';
+import { AppNameEnum } from 'services/models/explorer';
+
+import { IGroupingSelectOption } from 'types/services/models/imagesExplore/imagesExploreAppModel';
+
+import { SortFields } from 'utils/getSortedFields';
 
 export interface ISortPopoverProps {
-  onSort: (field: string, value?: 'asc' | 'desc' | 'none') => void;
+  onSort: any;
   onReset: () => void;
   sortOptions: IGroupingSelectOption[];
-  sortFields: [string, 'asc' | 'desc' | boolean][];
+  sortFields: SortFields;
+  readOnlyFieldsLabel?: string;
+  appName?: AppNameEnum;
+}
+export interface ISortPopoverListProps {
+  onSort: any;
+  sortFields: SortFields;
+  filteredSortFields: SortFields;
+  title?: string;
 }

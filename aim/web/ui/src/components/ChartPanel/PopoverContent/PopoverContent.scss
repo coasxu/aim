@@ -1,4 +1,4 @@
-@use "src/styles/abstracts" as *;
+@use 'src/styles/abstracts' as *;
 
 .PopoverContent__container {
   position: relative;
@@ -29,6 +29,7 @@
 
     &__value {
       margin-top: 0.25rem;
+      word-break: break-word;
     }
 
     &__value:first-child {
@@ -40,12 +41,13 @@
     }
 
     &__axisValue {
-      margin-top: 0.125rem;
+      margin-top: $space-xxxxs;
+      word-break: break-word;
     }
 
     &__contextValue {
       margin-left: 0.5rem;
-      font-weight: 400;
+      font-weight: $font-400;
     }
 
     &__runDetails {
@@ -65,11 +67,11 @@
     &__subtitle1 {
       color: $pico-50;
       text-transform: uppercase;
-      font-weight: 500;
+      font-weight: $font-500;
     }
 
     &__subtitle2 {
-      font-weight: 600;
+      font-weight: $font-600;
       text-transform: capitalize;
       color: $text-color;
       margin-top: 8px;

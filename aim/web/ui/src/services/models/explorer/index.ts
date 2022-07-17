@@ -8,17 +8,18 @@ import createAppModel from './createAppModel';
  *  Constants and Enums we can create and export from this file
  */
 
-enum AppDataTypeEnum {
+export enum AppDataTypeEnum {
   RUNS = 'runs',
   METRICS = 'metrics',
   IMAGES = 'images',
 }
 
-enum AppNameEnum {
+export enum AppNameEnum {
   METRICS = 'metrics',
   PARAMS = 'params',
   RUNS = 'runs',
   IMAGES = 'images',
+  SCATTERS = 'scatters',
 }
 
 /**
@@ -38,7 +39,7 @@ const appInitialConfig: {
   },
   PARAMS: {
     dataType: AppDataTypeEnum.RUNS,
-    selectForm: AppNameEnum.PARAMS,
+    selectForm: AppNameEnum.RUNS,
     grouping: true,
     appName: AppNameEnum.PARAMS,
     components: { table: true, charts: [ChartTypeEnum.HighPlot] },
@@ -50,6 +51,13 @@ const appInitialConfig: {
     appName: AppNameEnum.RUNS,
     components: { table: true },
   },
+  SCATTERS: {
+    dataType: AppDataTypeEnum.RUNS,
+    selectForm: AppNameEnum.RUNS,
+    grouping: true,
+    appName: AppNameEnum.SCATTERS,
+    components: { table: true, charts: [ChartTypeEnum.ScatterPlot] },
+  },
 };
 
-export { createAppModel, appInitialConfig, AppDataTypeEnum, AppNameEnum };
+export { createAppModel, appInitialConfig };

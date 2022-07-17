@@ -3,11 +3,16 @@ import React from 'react';
 import { CircularProgress } from '@material-ui/core';
 
 import Table from 'components/Table/Table';
+import ErrorBoundary from 'components/ErrorBoundary/ErrorBoundary';
+
+import { RequestStatusEnum } from 'config/enums/requestStatusEnum';
+import { Request_Illustrations } from 'config/illustrationConfig/illustrationConfig';
+
+import { AppNameEnum } from 'services/models/explorer';
 
 import { IRunsTableProps } from 'types/pages/runs/Runs';
 
 function RunsTable({
-  isRunsDataLoading,
   isInfiniteLoading,
   tableRef,
   columns,
@@ -19,11 +24,20 @@ function RunsTable({
   onColumnsVisibilityChange,
   onTableDiffShow,
   onManageColumns,
+  sameValueColumns,
   onRowHeightChange,
   hiddenColumns,
   columnsOrder,
   columnsWidths,
+  hideSystemMetrics,
   updateColumnsWidths,
+  selectedRows,
+  onRowSelect,
+  archiveRuns,
+  deleteRuns,
+  requestStatus,
+  onToggleColumnsColorScales,
+  columnsColorScales,
 }: IRunsTableProps): React.FunctionComponentElement<React.ReactNode> {
   const getLatestRunsDataRequestRef = React.useRef<any>(null);
   React.useEffect(() => {
@@ -40,41 +54,55 @@ function RunsTable({
   }
 
   return (
-    <div className='Runs__RunList__runListBox'>
-      <div className='RunsTable'>
-        <Table
-          custom
-          allowInfiniteLoading
-          isInfiniteLoading={isInfiniteLoading}
-          showRowClickBehaviour={false}
-          infiniteLoadHandler={handleInfiniteLoad}
-          showResizeContainerActionBar={false}
-          emptyText={'No runs found'}
-          ref={tableRef}
-          data={data}
-          columns={columns}
-          isLoading={isRunsDataLoading}
-          // Table options
-          topHeader
-          rowHeight={tableRowHeight}
-          hiddenColumns={hiddenColumns}
-          columnsOrder={columnsOrder}
-          columnsWidths={columnsWidths}
-          // Table actions
-          onManageColumns={onManageColumns}
-          onColumnsVisibilityChange={onColumnsVisibilityChange}
-          onTableDiffShow={onTableDiffShow}
-          onRowHeightChange={onRowHeightChange}
-          updateColumnsWidths={updateColumnsWidths}
-          onExport={onExportTableData}
-        />
-      </div>
-      {isInfiniteLoading && (
-        <div className='Infinite_Loader'>
-          <CircularProgress />
+    <ErrorBoundary>
+      <div className='Runs__RunList__runListBox'>
+        <div className='RunsTable'>
+          <Table
+            custom
+            allowInfiniteLoading
+            isInfiniteLoading={isInfiniteLoading}
+            showRowClickBehaviour={false}
+            infiniteLoadHandler={handleInfiniteLoad}
+            showResizeContainerActionBar={false}
+            ref={tableRef}
+            data={data}
+            sameValueColumns={sameValueColumns}
+            columns={columns}
+            selectedRows={selectedRows}
+            appName={AppNameEnum.RUNS}
+            multiSelect
+            // Table options
+            topHeader
+            rowHeight={tableRowHeight}
+            hiddenColumns={hiddenColumns}
+            hideSystemMetrics={hideSystemMetrics}
+            columnsOrder={columnsOrder}
+            columnsWidths={columnsWidths}
+            // Table actions
+            onManageColumns={onManageColumns}
+            onColumnsVisibilityChange={onColumnsVisibilityChange}
+            onTableDiffShow={onTableDiffShow}
+            onRowHeightChange={onRowHeightChange}
+            updateColumnsWidths={updateColumnsWidths}
+            onExport={onExportTableData}
+            onRowSelect={onRowSelect}
+            archiveRuns={archiveRuns}
+            deleteRuns={deleteRuns}
+            illustrationConfig={{
+              type: Request_Illustrations[requestStatus as RequestStatusEnum],
+              page: 'runs',
+            }}
+            onToggleColumnsColorScales={onToggleColumnsColorScales}
+            columnsColorScales={columnsColorScales}
+          />
         </div>
-      )}
-    </div>
+        {isInfiniteLoading && (
+          <div className='Infinite_Loader'>
+            <CircularProgress />
+          </div>
+        )}
+      </div>
+    </ErrorBoundary>
   );
 }
 

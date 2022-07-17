@@ -1,4 +1,9 @@
 import React from 'react';
+import _ from 'lodash-es';
+
+import ErrorBoundary from 'components/ErrorBoundary/ErrorBoundary';
+
+import { RENDER_LINES_OPTIMIZED_LIMIT } from 'config/charts';
 
 import useResizeObserver from 'hooks/window/useResizeObserver';
 
@@ -6,31 +11,35 @@ import { IFocusedState } from 'types/services/models/metrics/metricsAppModel';
 import { IHighPlotProps } from 'types/components/HighPlot/HighPlot';
 
 import {
-  drawParallelArea,
   clearArea,
   drawParallelAxes,
   drawParallelLines,
   drawParallelHoverAttributes,
   drawParallelAxesBrush,
   drawParallelColorIndicator,
+  drawArea,
 } from 'utils/d3';
 
 import './HighPlot.scss';
 
 const HighPlot = React.forwardRef(function HighPlot(
-  {
-    index,
+  props: IHighPlotProps,
+  ref,
+): React.FunctionComponentElement<React.ReactNode> {
+  const {
+    index = 0,
+    nameKey = '',
     curveInterpolation,
     syncHoverState,
     data,
     isVisibleColorIndicator,
     chartTitle,
-  }: IHighPlotProps,
-  ref,
-): React.FunctionComponentElement<React.ReactNode> {
-  // containers
-  const parentRef = React.useRef<HTMLDivElement>(null);
-  const visAreaRef = React.useRef<HTMLDivElement>(null);
+    onAxisBrushExtentChange,
+    brushExtents,
+    readOnly = false,
+    resizeMode,
+  } = props;
+
   // boxes
   const visBoxRef = React.useRef({
     margin: {
@@ -46,14 +55,20 @@ const HighPlot = React.forwardRef(function HighPlot(
     height: 0,
     width: 0,
   });
+
+  // containers
+  const parentRef = React.useRef<HTMLDivElement>(null);
+  const visAreaRef = React.useRef<HTMLDivElement>(null);
+
   // d3 node elements
   const svgNodeRef = React.useRef<any>(null);
   const bgRectNodeRef = React.useRef(null);
-  const plotNodeRef = React.useRef(null);
+  const plotNodeRef = React.useRef<any>(null);
   const axesNodeRef = React.useRef<any>(null);
   const linesNodeRef = React.useRef<any>(null);
   const attributesNodeRef = React.useRef(null);
   const highlightedNodeRef = React.useRef(null);
+
   // methods and values refs
   const attributesRef = React.useRef<any>({});
   const axesRef = React.useRef<any>({});
@@ -61,9 +76,10 @@ const HighPlot = React.forwardRef(function HighPlot(
   const brushRef = React.useRef<any>({});
   const rafIDRef = React.useRef<number>();
 
-  const draw = React.useCallback((): void => {
-    drawParallelArea({
+  function draw() {
+    drawArea({
       index,
+      nameKey,
       visBoxRef,
       plotBoxRef,
       parentRef,
@@ -89,8 +105,11 @@ const HighPlot = React.forwardRef(function HighPlot(
       dimensions: data.dimensions,
       plotBoxRef,
     });
+
     if (attributesRef?.current.xScale && attributesRef.current.yScale) {
       drawParallelLines({
+        index,
+        nameKey,
         linesNodeRef,
         attributesRef,
         attributesNodeRef,
@@ -103,63 +122,53 @@ const HighPlot = React.forwardRef(function HighPlot(
 
       linesRef.current.data = data.data;
 
-      drawParallelHoverAttributes({
-        dimensions: data.dimensions,
-        index,
-        visAreaRef,
-        linesRef,
-        attributesRef,
-        visBoxRef,
-        bgRectNodeRef,
-        attributesNodeRef,
-        linesNodeRef,
-        highlightedNodeRef,
-        isVisibleColorIndicator,
-        axesNodeRef,
-        syncHoverState,
-      });
+      // render lines with low quality if lines count are more than 'RENDER_LINES_OPTIMIZED_LIMIT'
+      if (!readOnly && linesNodeRef.current) {
+        const linesCount = linesNodeRef.current.selectChildren().size();
+        if (linesCount > RENDER_LINES_OPTIMIZED_LIMIT) {
+          linesNodeRef.current.classed('optimizeRendering', true);
+        }
+      }
 
+      if (!readOnly) {
+        drawParallelHoverAttributes({
+          dimensions: data.dimensions,
+          index,
+          nameKey,
+          visAreaRef,
+          linesRef,
+          attributesRef,
+          visBoxRef,
+          bgRectNodeRef,
+          attributesNodeRef,
+          linesNodeRef,
+          highlightedNodeRef,
+          isVisibleColorIndicator,
+          axesNodeRef,
+          syncHoverState,
+          svgNodeRef,
+        });
+      }
       drawParallelAxesBrush({
         plotBoxRef,
         plotNodeRef,
         brushRef,
         linesRef,
+        visBoxRef,
         attributesRef,
+        brushExtents,
+        onAxisBrushExtentChange,
         dimensions: data.dimensions,
         data: data.data,
+        index,
       });
     }
+  }
 
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [curveInterpolation, index, isVisibleColorIndicator, data]);
-
-  React.useImperativeHandle(ref, () => ({
-    setActiveLine: (lineKey: string) => {
-      attributesRef.current.setActiveLine?.(lineKey);
-    },
-    clearHoverAttributes: () => {
-      attributesRef.current.clearHoverAttributes?.();
-    },
-    setFocusedState: (focusedState: IFocusedState) => {
-      attributesRef.current.focusedState = focusedState;
-    },
-    setActiveLineAndCircle: (
-      lineKey: string,
-      focusedStateActive: boolean = false,
-      force: boolean = false,
-    ) => {
-      attributesRef.current.setActiveLineAndCircle?.(
-        lineKey,
-        focusedStateActive,
-        force,
-      );
-    },
-  }));
-
-  const renderChart = React.useCallback((): void => {
+  function renderChart() {
     clearArea({ visAreaRef });
     draw();
-  }, [draw]);
+  }
 
   const resizeObserverCallback: ResizeObserverCallback = React.useCallback(
     (entries: ResizeObserverEntry[]) => {
@@ -167,7 +176,15 @@ const HighPlot = React.forwardRef(function HighPlot(
         rafIDRef.current = window.requestAnimationFrame(renderChart);
       }
     },
-    [renderChart],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [
+      data,
+      curveInterpolation,
+      index,
+      isVisibleColorIndicator,
+      readOnly,
+      resizeMode,
+    ],
   );
 
   const observerReturnCallback = React.useCallback(() => {
@@ -185,12 +202,63 @@ const HighPlot = React.forwardRef(function HighPlot(
         window.cancelAnimationFrame(rafIDRef.current);
       }
     };
-  }, [renderChart]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    data,
+    curveInterpolation,
+    index,
+    isVisibleColorIndicator,
+    readOnly,
+    resizeMode,
+  ]);
+
+  React.useImperativeHandle(ref, () => ({
+    clearHoverAttributes: () => {
+      attributesRef.current.clearHoverAttributes?.();
+    },
+    setFocusedState: (focusedState: IFocusedState) => {
+      const prevFocusState = { ...attributesRef.current.focusedState };
+      attributesRef.current.focusedState = focusedState;
+
+      if (
+        !_.isEmpty(brushExtents) &&
+        !_.isNil(focusedState?.yValue) &&
+        (focusedState?.active !== prevFocusState?.active ||
+          (focusedState?.active &&
+            prevFocusState?.active &&
+            (prevFocusState.yValue !== focusedState.yValue ||
+              prevFocusState.xValue !== focusedState.xValue)))
+      ) {
+        brushRef?.current?.updateLinesAndHoverAttributes?.({
+          mouse: [
+            brushRef.current.xScale(focusedState?.xValue),
+            brushRef.current.yScale[focusedState?.xValue ?? 0](
+              focusedState?.yValue,
+            ) + visBoxRef.current.margin.top,
+          ],
+          focusedState,
+        });
+      }
+    },
+    setActiveLineAndCircle: (
+      lineKey: string,
+      focusedStateActive: boolean = false,
+      force: boolean = false,
+    ) => {
+      attributesRef.current.setActiveLineAndCircle?.(
+        lineKey,
+        focusedStateActive,
+        force,
+      );
+    },
+  }));
 
   return (
-    <div ref={parentRef} className='HighPlot__container'>
-      <div ref={visAreaRef} />
-    </div>
+    <ErrorBoundary>
+      <div ref={parentRef} className='HighPlot__container'>
+        <div ref={visAreaRef} />
+      </div>
+    </ErrorBoundary>
   );
 });
 

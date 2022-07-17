@@ -1,97 +1,138 @@
-import React from 'react';
-import { Link as RouteLink } from 'react-router-dom';
-import { merge } from 'lodash-es';
+import _ from 'lodash-es';
 
-import { Link } from '@material-ui/core';
+import { Tooltip } from '@material-ui/core';
 
-import { Badge, Button, Icon } from 'components/kit';
+import { Badge, Button, Icon, JsonViewPopover } from 'components/kit';
 import TableSortIcons from 'components/Table/TableSortIcons';
+import ControlPopover from 'components/ControlPopover/ControlPopover';
+import ErrorBoundary from 'components/ErrorBoundary/ErrorBoundary';
+import RunNameColumn from 'components/Table/RunNameColumn';
+import GroupedColumnHeader from 'components/Table/GroupedColumnHeader';
 
 import COLORS from 'config/colors/colors';
-import { PathEnum } from 'config/enums/routesEnum';
+import { TABLE_DEFAULT_CONFIG } from 'config/table/tableConfigs';
+
+import { AppNameEnum } from 'services/models/explorer';
 
 import { ITableColumn } from 'types/pages/metrics/components/TableColumns/TableColumns';
-import {
-  IOnGroupingSelectChangeParams,
-  SortField,
-} from 'types/services/models/metrics/metricsAppModel';
+import { IOnGroupingSelectChangeParams } from 'types/services/models/metrics/metricsAppModel';
+import { IGroupingSelectOption } from 'types/services/models/imagesExplore/imagesExploreAppModel';
 
+import alphabeticalSortComparator from 'utils/alphabeticalSortComparator';
 import { isSystemMetric } from 'utils/isSystemMetric';
 import { formatSystemMetricName } from 'utils/formatSystemMetricName';
-
-const icons: { [key: string]: string } = {
-  color: 'coloring-bold',
-  stroke: 'line-style-bold',
-  chart: 'chart-group-bold',
-};
+import contextToString from 'utils/contextToString';
+import { formatValue } from 'utils/formatValue';
+import { SortActionTypes, SortField } from 'utils/getSortedFields';
+import getColumnOptions from 'utils/getColumnOptions';
 
 function getParamsTableColumns(
+  groupingSelectOptions: IGroupingSelectOption[],
   metricsColumns: any,
   paramColumns: string[] = [],
   groupFields: { [key: string]: string } | null,
   order: { left: string[]; middle: string[]; right: string[] },
   hiddenColumns: string[],
   sortFields?: any[],
-  onSort?: (field: string, value?: 'asc' | 'desc' | 'none') => void,
+  onSort?: ({ sortFields, order, index, actionType }: any) => void,
   grouping?: { [key: string]: string[] },
   onGroupingToggle?: (params: IOnGroupingSelectChangeParams) => void,
+  appName?: AppNameEnum,
 ): ITableColumn[] {
   let columns: ITableColumn[] = [
     {
+      key: 'hash',
+      content: <span>Hash</span>,
+      topHeader: 'Run',
+      pin: order?.left?.includes('hash')
+        ? 'left'
+        : order?.middle?.includes('hash')
+        ? null
+        : order?.right?.includes('hash')
+        ? 'right'
+        : null,
+      columnOptions: getColumnOptions(
+        grouping!,
+        onGroupingToggle!,
+        appName!,
+        'run.hash',
+      ),
+    },
+    {
+      key: 'run',
+      content: <span>Name</span>,
+      topHeader: 'Run',
+      pin: order?.left?.includes('run')
+        ? 'left'
+        : order?.middle?.includes('run')
+        ? null
+        : order?.right?.includes('run')
+        ? 'right'
+        : 'left',
+      columnOptions: getColumnOptions(
+        grouping!,
+        onGroupingToggle!,
+        appName!,
+        'run.props.name',
+      ),
+    },
+    {
       key: 'experiment',
       content: <span>Experiment</span>,
-      topHeader: 'Metrics',
+      topHeader: 'Run',
       pin: order?.left?.includes('experiment')
         ? 'left'
         : order?.middle?.includes('experiment')
         ? null
         : order?.right?.includes('experiment')
         ? 'right'
-        : 'left',
-      columnOptions: ['color', 'stroke', 'chart'].map((groupName: string) => ({
-        value: `${
-          grouping?.[groupName]?.includes('run.props.experiment') ? 'un' : ''
-        }group by ${groupName}`,
-        onClick: () => {
-          if (onGroupingToggle) {
-            onGroupingToggle({
-              groupName,
-              list: grouping?.[groupName]?.includes('run.props.experiment')
-                ? grouping?.[groupName].filter(
-                    (item) => item !== 'run.props.experiment',
-                  )
-                : grouping?.[groupName].concat(['run.props.experiment']),
-            } as IOnGroupingSelectChangeParams);
-          }
-        },
-        icon: icons[groupName],
-      })),
+        : null,
+      columnOptions: getColumnOptions(
+        grouping!,
+        onGroupingToggle!,
+        appName!,
+        'run.props.experiment.name',
+      ),
     },
     {
-      key: 'run',
-      content: <span>Run</span>,
-      topHeader: 'Metrics',
-      pin: order?.left?.includes('run')
+      key: 'description',
+      content: <span>Description</span>,
+      topHeader: 'Run',
+      pin: order?.left?.includes('description')
         ? 'left'
-        : order?.right?.includes('run')
+        : order?.middle?.includes('description')
+        ? null
+        : order?.right?.includes('description')
         ? 'right'
         : null,
-      columnOptions: ['color', 'stroke', 'chart'].map((groupName: string) => ({
-        value: `${
-          grouping?.[groupName]?.includes('run.hash') ? 'un' : ''
-        }group by ${groupName}`,
-        onClick: () => {
-          if (onGroupingToggle) {
-            onGroupingToggle({
-              groupName,
-              list: grouping?.[groupName]?.includes('run.hash')
-                ? grouping?.[groupName].filter((item) => item !== 'run.hash')
-                : grouping?.[groupName].concat(['run.hash']),
-            } as IOnGroupingSelectChangeParams);
-          }
-        },
-        icon: icons[groupName],
-      })),
+    },
+    {
+      key: 'date',
+      content: <span>Date</span>,
+      topHeader: 'Run',
+      pin: order?.left?.includes('date')
+        ? 'left'
+        : order?.middle?.includes('date')
+        ? null
+        : order?.right?.includes('date')
+        ? 'right'
+        : null,
+      columnOptions: getColumnOptions(
+        grouping!,
+        onGroupingToggle!,
+        appName!,
+        'run.props.experiment.name',
+      ),
+    },
+    {
+      key: 'duration',
+      content: <span>Duration</span>,
+      topHeader: 'Run',
+      pin: order?.left?.includes('duration')
+        ? 'left'
+        : order?.right?.includes('duration')
+        ? 'right'
+        : null,
     },
     {
       key: 'actions',
@@ -102,35 +143,51 @@ function getParamsTableColumns(
   ].concat(
     Object.keys(metricsColumns).reduce((acc: any, key: string) => {
       const systemMetric: boolean = isSystemMetric(key);
-      acc = [
-        ...acc,
-        ...Object.keys(metricsColumns[key]).map((metricContext) => ({
-          key: `${systemMetric ? key : `${key}_${metricContext}`}`,
-          content: isSystemMetric(key) ? (
+      const systemMetricsList: ITableColumn[] = [];
+      const metricsList: ITableColumn[] = [];
+      Object.keys(metricsColumns[key]).forEach((metricContext) => {
+        const columnKey = `${systemMetric ? key : `${key}_${metricContext}`}`;
+        let column = {
+          key: columnKey,
+          content: systemMetric ? (
             <span>{formatSystemMetricName(key)}</span>
           ) : (
             <Badge
-              size='small'
+              monospace
+              size='xSmall'
               color={COLORS[0][0]}
-              label={metricContext === '' ? 'No context' : metricContext}
+              label={metricContext === '' ? 'Empty context' : metricContext}
             />
           ),
-          topHeader: isSystemMetric(key) ? 'System Metrics' : key,
-          pin: order?.left?.includes(`${key}_${metricContext}`)
+          topHeader: systemMetric ? 'System Metrics' : key,
+          pin: order?.left?.includes(columnKey)
             ? 'left'
-            : order?.right?.includes(`${key}_${metricContext}`)
+            : order?.right?.includes(columnKey)
             ? 'right'
             : null,
-        })),
+        };
+        systemMetric
+          ? systemMetricsList.push(column)
+          : metricsList.push(column);
+      });
+      acc = [
+        ...acc,
+        ...metricsList.sort(alphabeticalSortComparator({ orderBy: 'key' })),
+        ...systemMetricsList.sort(
+          alphabeticalSortComparator({ orderBy: 'key' }),
+        ),
       ];
       return acc;
     }, []),
     paramColumns.map((param) => {
       const paramKey = `run.params.${param}`;
-      const sortItem: SortField = sortFields?.find(
-        (value) => value[0] === `run.params.${paramKey}`,
-      );
-
+      let index = -1;
+      const sortItem: SortField | undefined = sortFields?.find((value, i) => {
+        if (value.value === paramKey) {
+          index = i;
+        }
+        return value.value === paramKey;
+      });
       return {
         key: param,
         content: (
@@ -138,80 +195,58 @@ function getParamsTableColumns(
             {param}
             {onSort && (
               <TableSortIcons
-                onSort={() => onSort(paramKey)}
-                sortFields={sortFields}
-                sort={Array.isArray(sortItem) ? sortItem[1] : null}
+                onSort={() =>
+                  onSort({
+                    sortFields,
+                    index,
+                    field:
+                      index === -1
+                        ? groupingSelectOptions.find(
+                            (value) => value.value === paramKey,
+                          )
+                        : sortItem,
+                    actionType:
+                      sortItem?.order === 'desc'
+                        ? SortActionTypes.DELETE
+                        : SortActionTypes.ORDER_TABLE_TRIGGER,
+                  })
+                }
+                sort={!_.isNil(sortItem) ? sortItem.order : null}
               />
             )}
           </span>
         ),
-        topHeader: 'Params',
+        topHeader: 'Run Params',
         pin: order?.left?.includes(param)
           ? 'left'
           : order?.right?.includes(param)
           ? 'right'
           : null,
-        columnOptions: ['color', 'stroke', 'chart'].map(
-          (groupName: string) => ({
-            value: `${
-              grouping?.[groupName]?.includes(paramKey) ? 'un' : ''
-            }group by ${groupName}`,
-            onClick: () => {
-              if (onGroupingToggle) {
-                onGroupingToggle({
-                  groupName,
-                  list: grouping?.[groupName]?.includes(paramKey)
-                    ? grouping?.[groupName].filter((item) => item !== paramKey)
-                    : grouping?.[groupName].concat([paramKey]),
-                } as IOnGroupingSelectChangeParams);
-              }
-            },
-            icon: icons[groupName],
-          }),
+        columnOptions: getColumnOptions(
+          grouping!,
+          onGroupingToggle!,
+          appName!,
+          paramKey,
         ),
       };
     }),
   );
 
-  if (groupFields) {
-    columns.push({
-      key: '#',
-      content: (
-        <span
-          style={{ textAlign: 'right', display: 'inline-block', width: '100%' }}
-        >
-          #
-        </span>
-      ),
-      topHeader: 'Grouping',
-      pin: 'left',
-    });
-    Object.keys(groupFields).forEach((field) => {
-      const key = field.replace('run.params.', '');
-      const column = columns.find((col) => col.key === key);
-      if (!!column) {
-        column.pin = 'left';
-        column.topHeader = 'Grouping';
-      }
-    });
-  }
-
   columns = columns.map((col) => ({
     ...col,
-    isHidden: hiddenColumns.includes(col.key),
+    isHidden:
+      !TABLE_DEFAULT_CONFIG.params.nonHidableColumns.has(col.key) &&
+      hiddenColumns.includes(col.key),
   }));
 
   const columnsOrder = order?.left.concat(order.middle).concat(order.right);
   columns.sort((a, b) => {
     if (a.key === '#') {
       return -1;
-    } else if (
-      groupFields?.hasOwnProperty(a.key) ||
-      groupFields?.hasOwnProperty(`run.params.${a.key}`)
-    ) {
-      return -1;
     } else if (a.key === 'actions') {
       return 1;
+    } else if (b.key === 'actions') {
+      return -1;
     }
     if (!columnsOrder.includes(a.key) && !columnsOrder.includes(b.key)) {
       return 0;
@@ -222,9 +257,55 @@ function getParamsTableColumns(
     }
     return columnsOrder.indexOf(a.key) - columnsOrder.indexOf(b.key);
   });
+  if (groupFields) {
+    columns = [
+      {
+        key: '#',
+        content: (
+          <span
+            style={{
+              textAlign: 'right',
+              display: 'inline-block',
+              width: '100%',
+            }}
+          >
+            #
+          </span>
+        ),
+        topHeader: 'Grouping',
+        pin: 'left',
+      },
+      {
+        key: 'groups',
+        content: (
+          <div className='Table__groupsColumn__cell'>
+            {Object.keys(groupFields).map((field) => {
+              let name: string = field.replace('run.params.', '');
+              name = name.replace(
+                'run.props.experiment.name',
+                'run.props.experiment',
+              );
+              name = name.replace('run.props', 'run');
+              return (
+                <Tooltip key={field} title={name || ''}>
+                  <div>{name}</div>
+                </Tooltip>
+              );
+            })}
+          </div>
+        ),
+        pin: order?.left?.includes('groups')
+          ? 'left'
+          : order?.right?.includes('groups')
+          ? 'right'
+          : null,
+        topHeader: 'Group Config',
+      },
+      ...columns,
+    ];
+  }
   return columns;
 }
-
 function paramsTableRowRenderer(
   rowData: any,
   actions?: { [key: string]: (e: any) => void },
@@ -235,31 +316,68 @@ function paramsTableRowRenderer(
     const row: { [key: string]: any } = {};
     for (let i = 0; i < columns.length; i++) {
       const col = columns[i];
-      if (Array.isArray(rowData[col])) {
+      if (col === 'groups') {
+        row.groups = {
+          content: (
+            <ErrorBoundary>
+              <div className='Table__groupsColumn__cell'>
+                {Object.keys(rowData[col]).map((item) => {
+                  const value: string | { [key: string]: unknown } =
+                    rowData[col][item];
+                  return _.isObject(value) ? (
+                    <ControlPopover
+                      key={contextToString(value)}
+                      title={item}
+                      anchorOrigin={{
+                        vertical: 'bottom',
+                        horizontal: 'left',
+                      }}
+                      transformOrigin={{
+                        vertical: 'top',
+                        horizontal: 'left',
+                      }}
+                      anchor={({ onAnchorClick }) => (
+                        <Tooltip
+                          title={(contextToString(value) as string) || ''}
+                        >
+                          <span onClick={onAnchorClick}>
+                            {contextToString(value)}
+                          </span>
+                        </Tooltip>
+                      )}
+                      component={<JsonViewPopover json={value} />}
+                    />
+                  ) : (
+                    <Tooltip key={item} title={formatValue(value) || ''}>
+                      <div>{formatValue(value)}</div>
+                    </Tooltip>
+                  );
+                })}
+              </div>
+            </ErrorBoundary>
+          ),
+        };
+      } else if (Array.isArray(rowData[col])) {
         row[col] = {
           content: (
-            <Badge
-              size='small'
-              color={COLORS[0][0]}
-              label={`${rowData[col].length} values`}
-            />
+            <ErrorBoundary>
+              <GroupedColumnHeader data={rowData[col]} />
+            </ErrorBoundary>
           ),
         };
       }
     }
-
-    return merge({}, rowData, row);
+    return _.merge({}, rowData, row);
   } else {
     const row = {
       experiment: rowData.experiment,
       run: {
         content: (
-          <Link
-            to={PathEnum.Run_Detail.replace(':runHash', rowData.runHash)}
-            component={RouteLink}
-          >
-            {rowData.run}
-          </Link>
+          <RunNameColumn
+            run={rowData.run}
+            runHash={rowData.hash}
+            active={rowData.active}
+          />
         ),
       },
       actions: {
@@ -279,7 +397,7 @@ function paramsTableRowRenderer(
       },
     };
 
-    return merge({}, rowData, row);
+    return _.merge({}, rowData, row);
   }
 }
 

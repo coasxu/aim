@@ -1,9 +1,12 @@
 @use 'src/styles/abstracts' as *;
 
 .Tags {
+  height: 100vh;
+  overflow: hidden;
   &__tabPanel {
     height: calc(100% - 50px);
     position: relative;
+    padding-bottom: 1.5rem;
     & > div {
       height: 100%;
       position: relative;
@@ -17,15 +20,15 @@
     &__tabs {
       .MuiTab-textColorInherit {
         opacity: 1;
-        font-weight: 500;
+        font-weight: $font-500;
         font-size: $text-md;
         text-transform: none;
         &.MuiInputBase-input {
-          font-weight: 600;
+          font-weight: $font-600;
         }
       }
       .Mui-selected {
-        font-weight: 600;
+        font-weight: $font-600;
         color: $pico;
       }
     }
@@ -38,6 +41,26 @@
     height: 100%;
     border-left: $border-grey;
     border-right: $border-grey;
+    box-shadow: 0 toRem(1px) toRem(1px) $cuddle-50;
+    border-radius: 0 0 toRem(6px) toRem(6px);
+    .BaseTable {
+      &__body {
+        & > div {
+          width: 100% !important;
+          .BaseTable__row {
+            width: 100% !important;
+          }
+        }
+      }
+      &__row {
+        &-cell {
+          border-right: unset;
+        }
+      }
+      &__header-cell {
+        border-right: unset;
+      }
+    }
     &__tagListBusyLoader {
       padding-top: 100px;
     }
@@ -56,11 +79,11 @@
           padding-right: 0.5625rem;
         }
         .MuiInputBase-input {
-          font-weight: 500;
+          font-weight: $font-500;
           font-size: $text-md;
           color: #414b6d;
           &::placeholder {
-            font-weight: 500;
+            font-weight: $font-500;
             font-size: $text-md;
             color: #606986;
             opacity: 1;
@@ -75,7 +98,7 @@
           padding-right: 0.5rem;
         }
         .MuiButton-label {
-          font-weight: 500;
+          font-weight: $font-500;
           font-size: $text-md;
           justify-content: flex-start;
         }
@@ -84,6 +107,8 @@
     &__tagListBox {
       height: calc(100% - 73px);
       position: relative;
+      overflow: hidden;
+      border-radius: 0 0 toRem(6px) toRem(6px);
       &__titleBox {
         position: relative;
         margin-left: 15px;
@@ -102,7 +127,7 @@
           bottom: 0;
         }
         &__title {
-          font-weight: 600;
+          font-weight: $font-600;
           font-size: $text-md;
         }
       }
@@ -122,6 +147,7 @@
         width: 800px;
         box-shadow: -5px 0px 10px rgba(28, 40, 82, 0.1);
         top: 50px;
+        height: calc(100% - 40px);
       }
       .MuiBackdrop-root {
         background-color: transparent;
@@ -156,16 +182,37 @@
       );
     }
   }
-  &__runCreatedDate {
-    font-weight: 500;
+  &__runDuration {
+    font-weight: $font-500;
     color: $text-color;
+    font-size: $text-lg;
+    @include monospaceFontFamily(14);
+  }
+  &__runCreatedDate {
+    font-weight: $font-500;
+    color: $text-color;
+    font-size: $text-lg;
+    @include monospaceFontFamily(14);
   }
   &__runName {
-    font-weight: 500;
+    font-weight: $font-500;
     color: $primary-color;
     text-decoration: none;
+    font-size: $text-lg;
+    @include monospaceFontFamily(14);
   }
   .BaseTable {
+    .BaseTable__table-main .BaseTable__row-cell:first-child {
+      padding-left: $space-unit;
+    }
+    &__body {
+      & > div {
+        width: 100% !important;
+        .BaseTable__row {
+          width: 100% !important;
+        }
+      }
+    }
     &__table-main {
       outline: none;
     }
@@ -262,12 +309,12 @@
     }
     &__textBox {
       &__titleText {
-        font-weight: 600;
+        font-weight: $font-600;
         font-size: $text-md;
         margin-bottom: 5px;
       }
       &__contentText {
-        font-weight: normal;
+        font-weight: $font-400;
         font-size: $text-sm;
       }
     }
@@ -292,11 +339,11 @@
       align-items: center;
       flex-direction: column;
       justify-content: center;
-      .TagForm__tagFormContainer__labelField {
-        margin-bottom: 0;
-      }
       &__warningText {
-        margin-bottom: 15px;
+        margin: 16px 0 4px 0;
+      }
+      .MuiInputBase-root {
+        margin-bottom: 0;
       }
     }
   }

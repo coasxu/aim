@@ -3,7 +3,12 @@ import React from 'react';
 import { RowHeight, RowHeightSize } from 'config/table/tableConfigs';
 import { ResizeModeEnum } from 'config/enums/tableEnums';
 
+import { AppNameEnum } from 'services/models/explorer';
+
 import { IMetricProps } from 'types/pages/metrics/Metrics';
+import { IColumnsOrder } from 'types/services/models/explorer/createAppModel';
+
+import { IIllustrationBlockProps } from '../IllustrationBlock/IllustrationBlock';
 
 export interface ITableProps {
   custom?: boolean;
@@ -11,9 +16,13 @@ export interface ITableProps {
   topHeader?: boolean;
   data: any[] | null;
   columns: any[];
-  rowHeight: RowHeight;
-  onManageColumns?: (order: any) => void;
-  onColumnsVisibilityChange?: (hiddenColumns: string[]) => void;
+  sameValueColumns?: string[] | [];
+  height?: string;
+  rowHeight?: RowHeight;
+  estimatedRowHeight?: number;
+  onManageColumns?: (order: IColumnsOrderData) => void;
+  onColumnsVisibilityChange?: (hiddenColumns: string[] | string) => void;
+  hiddenChartRows?: boolean;
   onTableDiffShow?: () => void;
   onSort?: (field: string, value: 'asc' | 'desc' | 'none') => void;
   onSortReset?: () => void;
@@ -25,19 +34,20 @@ export interface ITableProps {
     name: string;
     callBack: () => void;
   }[];
+  className?: string;
   headerHeight?: number;
   sortOptions?: GroupingSelectOptionType[];
   fixed?: boolean;
   onRowHover?: (rowKey: string) => void;
   onRowClick?: (rowKey?: string) => void;
   hideHeaderActions?: boolean;
-  emptyText?: string;
   excludedFields?: string[];
   setExcludedFields?: (fields: string[]) => null;
   alwaysVisibleColumns?: string[];
   rowHeightMode?: any;
-  columnsOrder?: any;
+  columnsOrder?: IColumnsOrder;
   hiddenColumns?: string[];
+  hideSystemMetrics?: boolean;
   updateColumns?: any;
   columnsWidths?: any;
   updateColumnsWidths?: any;
@@ -51,11 +61,42 @@ export interface ITableProps {
   showRowClickBehaviour?: boolean;
   showResizeContainerActionBar?: boolean;
   resizeMode?: ResizeModeEnum;
+  multiSelect?: boolean;
+  selectedRows?: any;
+  minHeight?: string;
+  onRowSelect?: any;
+  archiveRuns?: (ids: string[], archived: boolean) => void;
+  deleteRuns?: (ids: string[]) => void;
+  onToggleColumnsColorScales?: (colKey: string) => void;
+  className?: string;
+  appName?: AppNameEnum;
+  focusedState?: any;
+  illustrationConfig?: IIllustrationConfig;
+  disableRowClick?: boolean;
+  columnsColorScales?: { [key: string]: boolean };
 }
 
 export interface ITableRef {
-  updateData: (params: { newData?: any[]; newColumns?: any[] }) => void;
+  updateData: (params: {
+    newData?: any[];
+    newColumns?: any[];
+    hiddenColumns?: string[] | string;
+  }) => void;
   setHoveredRow: (rowKey: string) => void;
   setActiveRow: (rowKey: string) => void;
   scrollToRow: (rowKey: string) => void;
+}
+
+export interface IColumnsOrderData {
+  left: string[];
+  middle: string[];
+  right: string[];
+}
+
+export interface IIllustrationConfig {
+  size?: IIllustrationBlockProps['size'];
+  page?: IIllustrationBlockProps['page'];
+  type?: IIllustrationBlockProps['type'];
+  title?: IIllustrationBlockProps['title'];
+  content?: IIllustrationBlockProps['content'];
 }

@@ -1,4 +1,6 @@
 import { AlignmentNotificationsEnum } from 'config/notification-messages/notificationMessages';
+import { RequestStatusEnum } from 'config/enums/requestStatusEnum';
+import { ANALYTICS_EVENT_KEYS } from 'config/analytics/analyticsKeysMap';
 
 import * as analytics from 'services/analytics';
 import metricsService from 'services/api/metrics/metricsService';
@@ -12,6 +14,7 @@ import { AlignmentOptionsEnum } from '../d3';
 import getRunData from './getRunData';
 import onNotificationAdd from './onNotificationAdd';
 import updateURL from './updateURL';
+import setRequestProgress from './setRequestProgress';
 
 export default async function onAlignmentMetricChange<M extends State>({
   metric,
@@ -35,21 +38,21 @@ export default async function onAlignmentMetricChange<M extends State>({
     configData.chart = {
       ...configData.chart,
       alignmentConfig: { metric, type: AlignmentOptionsEnum.CUSTOM_METRIC },
+      zoom: { ...configData.chart.zoom, history: [] },
     };
+
     model.setState({ config: configData });
     updateURL({ configData, appName });
   }
   if (modelState?.rawData && configData) {
-    model.setState({ requestIsPending: true });
+    model.setState({ requestStatus: RequestStatusEnum.Pending });
     const runs: Array<{ run_id: string; traces: any }> =
       modelState.rawData?.map((item) => {
-        const traces = item.traces.map(
-          ({ context, metric_name, slice }: any) => ({
-            context,
-            metric_name,
-            slice,
-          }),
-        );
+        const traces = item.traces.map(({ context, name, slice }: any) => ({
+          context,
+          name,
+          slice,
+        }));
         return {
           run_id: item.hash,
           traces,
@@ -64,7 +67,9 @@ export default async function onAlignmentMetricChange<M extends State>({
       const stream = await metricsService
         .fetchAlignedMetricsData(reqBody)
         .call();
-      const runData = await getRunData(stream);
+      const runData = await getRunData(stream, (progress) =>
+        setRequestProgress(model, progress),
+      );
       let missingTraces = false;
       const rawData: any = model.getState()?.rawData?.map((item, index) => {
         return {
@@ -88,7 +93,7 @@ export default async function onAlignmentMetricChange<M extends State>({
           notification: {
             id: Date.now(),
             severity: 'error',
-            message: AlignmentNotificationsEnum.NOT_ALL_ALIGNED,
+            messages: [AlignmentNotificationsEnum.NOT_ALL_ALIGNED],
           },
           model,
         });
@@ -96,6 +101,7 @@ export default async function onAlignmentMetricChange<M extends State>({
           ...configData.chart,
           alignmentConfig: { metric: '', type: AlignmentOptionsEnum.STEP },
         };
+        model.setState({ requestStatus: RequestStatusEnum.BadRequest });
       }
       setModelData(rawData, configData);
     } catch (ex: any) {
@@ -109,13 +115,13 @@ export default async function onAlignmentMetricChange<M extends State>({
             type: AlignmentOptionsEnum.STEP,
           },
         };
-        model.setState({ requestIsPending: false });
+        model.setState({ requestStatus: RequestStatusEnum.BadRequest });
         updateModelData(configData, true);
-        console.log('Unhandled error: ', ex);
       }
     }
   }
   analytics.trackEvent(
-    `[${appName}Explorer][Chart] Align X axis by another metric`,
+    // @ts-ignore
+    `${ANALYTICS_EVENT_KEYS[appName].chart.controls.changeXAxisProperties}, Align X axis by another metric`,
   );
 }

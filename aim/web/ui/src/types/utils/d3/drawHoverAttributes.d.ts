@@ -1,19 +1,23 @@
 import React from 'react';
 
-import { IAttributesRef } from 'components/LineChart/LineChart';
 import { HighlightEnum } from 'components/HighlightModesPopover/HighlightModesPopover';
+import { IPoint } from 'components/ScatterPlot';
 
+import { ILine, IAttributesRef } from 'types/components/LineChart/LineChart';
 import {
   IAggregationConfig,
   IAlignmentConfig,
 } from 'types/services/models/metrics/metricsAppModel';
 
-import { IGetAxisScale } from './getAxisScale';
-import { IProcessedData } from './processData';
+import { ScaleEnum } from 'utils/d3';
 
-export interface IDrawHoverAttributesProps {
+import { IAxisScale } from './getAxisScale';
+
+export interface IDrawHoverAttributesArgs {
   index: number;
-  data: IProcessedData[];
+  nameKey: string;
+  data: ILine[] | IPoint[];
+  axesScaleType: { xAxis: ScaleEnum; yAxis: ScaleEnum };
   visAreaRef: React.MutableRefObject<>;
   attributesNodeRef: React.MutableRefObject<>;
   attributesRef: React.MutableRefObject<IAttributesRef>;
@@ -21,18 +25,19 @@ export interface IDrawHoverAttributesProps {
   visBoxRef: React.MutableRefObject<>;
   svgNodeRef: React.MutableRefObject<>;
   bgRectNodeRef: React.MutableRefObject<>;
-  xAxisLabelNodeRef: React.MutableRefObject<>;
-  yAxisLabelNodeRef: React.MutableRefObject<>;
+  xAxisLabelNodeRef?: React.MutableRefObject<>;
+  yAxisLabelNodeRef?: React.MutableRefObject<>;
   linesNodeRef: React.MutableRefObject<>;
-  syncHoverState: (params: ISyncHoverStateParams) => void;
+  syncHoverState?: (params: ISyncHoverStateParams) => void;
   highlightedNodeRef: React.MutableRefObject<>;
-  highlightMode: HighlightEnum;
+  highlightMode?: HighlightEnum;
   aggregationConfig?: IAggregationConfig;
   alignmentConfig?: IAlignmentConfig;
-  humanizerConfigRef: React.MutableRefObject<{}>;
+  drawAxisLines?: { x: Boolean; y: Boolean };
+  drawAxisLabels?: { x: Boolean; y: Boolean };
 }
 
-export interface ISyncHoverStateParams {
+export interface ISyncHoverStateArgs {
   activePoint: IActivePoint | null;
   dataSelector?: string;
   focusedStateActive?: boolean;
@@ -45,11 +50,11 @@ export interface IGetCoordinates {
   mouseY: number;
 }
 
-export interface IGetCoordinatesProps {
+export interface IGetCoordinatesArgs {
   mouse: [number, number];
   margin: { left: number; top: number };
-  xScale: IGetAxisScale;
-  yScale: IGetAxisScale;
+  xScale: IAxisScale;
+  yScale: IAxisScale;
 }
 
 export interface INearestCircle {
@@ -62,10 +67,14 @@ export interface INearestCircle {
 export interface IActivePoint {
   key: string;
   xValue: number | string;
-  yValue: number;
+  yValue: number | string;
   xPos: number;
   yPos: number;
   chartIndex: number;
-  topPos: number;
-  leftPos: number;
+  pointRect: {
+    top: number;
+    bottom: number;
+    left: number;
+    right: number;
+  } | null;
 }

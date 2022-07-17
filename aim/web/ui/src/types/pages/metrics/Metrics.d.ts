@@ -6,11 +6,17 @@ import { HighlightEnum } from 'components/HighlightModesPopover/HighlightModesPo
 import { RowHeightSize } from 'config/table/tableConfigs';
 import { ResizeModeEnum } from 'config/enums/tableEnums';
 import { DensityOptions } from 'config/enums/densityEnum';
+import { RequestStatusEnum } from 'config/enums/requestStatusEnum';
+
+import {
+  IGroupingConfig,
+  ISelectConfig,
+} from 'services/models/explorer/createAppModel';
+import { ISelectOption } from 'services/models/explorer/createAppModel';
 
 import { ITableRef } from 'types/components/Table/Table';
 import {
-  GroupNameType,
-  IMetricAppConfig,
+  GroupNameEnum,
   IMetricTableRowData,
   IOnGroupingModeChangeParams,
   IOnGroupingSelectChangeParams,
@@ -19,7 +25,7 @@ import {
   IAggregationConfig,
   IAggregatedData,
   IAlignmentConfig,
-  IChartTooltip,
+  ITooltip,
   IChartTitleData,
   IGroupingSelectOption,
   IChartZoom,
@@ -29,12 +35,16 @@ import { IChartPanelRef } from 'types/components/ChartPanel/ChartPanel';
 import { IAxesScaleState } from 'types/components/AxesScalePopover/AxesScalePopover';
 import { IActivePoint } from 'types/utils/d3/drawHoverAttributes';
 import { IBookmarkFormState } from 'types/components/BookmarkForm/BookmarkForm';
-import { INotification } from 'types/components/NotificationContainer/NotificationContainer';
+import {
+  INotification,
+  ISyntaxErrorDetails,
+} from 'types/components/NotificationContainer/NotificationContainer';
 import { ILine } from 'types/components/LineChart/LineChart';
-import { IProjectParamsMetrics } from 'types/services/models/projects/projectsModel';
+import { IColumnsOrder } from 'types/services/models/explorer/createAppModel';
 
 import { SmoothingAlgorithmEnum } from 'utils/smoothingData';
 import { CurveEnum } from 'utils/d3';
+import { IRequestProgress } from 'utils/app/setRequestProgress';
 
 export interface IMetricProps extends Partial<RouteChildrenProps> {
   tableRef: React.RefObject<ITableRef>;
@@ -43,6 +53,7 @@ export interface IMetricProps extends Partial<RouteChildrenProps> {
   chartElemRef: React.RefObject<HTMLDivElement>;
   wrapperElemRef: React.RefObject<HTMLDivElement>;
   resizeElemRef: React.RefObject<HTMLDivElement>;
+  chartPanelOffsetHeight?: number;
   lineChartData: ILine[][];
   panelResizing: boolean;
   chartTitleData: IChartTitleData;
@@ -58,21 +69,31 @@ export interface IMetricProps extends Partial<RouteChildrenProps> {
   smoothingFactor: number;
   focusedState: IFocusedState;
   highlightMode: HighlightEnum;
-  groupingData: IMetricAppConfig['grouping'];
+  groupingData: IGroupingConfig;
   notifyData: IMetricAppModelState['notifyData'];
-  tooltip: IChartTooltip;
+  tooltip: ITooltip;
   aggregationConfig: IAggregationConfig;
   alignmentConfig: IAlignmentConfig;
-  selectedMetricsData: IMetricAppConfig['select'];
+  selectedMetricsData: ISelectConfig;
   tableRowHeight: RowHeightSize;
+  selectedRows: { [key: string]: any };
   sortFields: [string, 'asc' | 'desc' | boolean][];
   hiddenMetrics: string[];
   hiddenColumns: string[];
+  hideSystemMetrics: boolean;
+  sameValueColumns?: string[] | [];
   groupingSelectOptions: IGroupingSelectOption[];
-  projectsDataMetrics: IProjectParamsMetrics['metrics'];
-  requestIsPending: boolean;
+  requestStatus: RequestStatusEnum;
+  requestProgress: IRequestProgress;
   resizeMode: ResizeModeEnum;
-  onChangeTooltip: (tooltip: Partial<IChartTooltip>) => void;
+  selectFormData: {
+    options: ISelectOption[];
+    suggestions: string[];
+    error: ISyntaxErrorDetails;
+    advancedError: ISyntaxErrorDetails;
+  };
+  columnsOrder: IColumnsOrder;
+  onChangeTooltip: (tooltip: Partial<ITooltip>) => void;
   onIgnoreOutliersChange: () => void;
   onZoomChange: (zoom: Partial<IChartZoom>) => void;
   onActivePointChange?: (
@@ -90,8 +111,8 @@ export interface IMetricProps extends Partial<RouteChildrenProps> {
   onGroupingSelectChange: (params: IOnGroupingSelectChangeParams) => void;
   onGroupingModeChange: (params: IOnGroupingModeChangeParams) => void;
   onGroupingPaletteChange: (index: number) => void;
-  onGroupingReset: (groupName: GroupNameType) => void;
-  onGroupingApplyChange: (groupName: GroupNameType) => void;
+  onGroupingReset: (groupName: GroupNameEnum) => void;
+  onGroupingApplyChange: (groupName: GroupNameEnum) => void;
   onGroupingPersistenceChange: (groupName: 'color' | 'stroke') => void;
   onBookmarkCreate: (params: IBookmarkFormState) => void;
   onBookmarkUpdate: (id: string) => void;
@@ -101,7 +122,7 @@ export interface IMetricProps extends Partial<RouteChildrenProps> {
   onAlignmentMetricChange: (metric: string) => void;
   onAlignmentTypeChange: (type: XAlignmentEnum) => void;
   onDensityTypeChange: (type: DensityOptions) => void;
-  onMetricsSelectChange: IMetricAppConfig['onMetricsSelectChange'];
+  onMetricsSelectChange: (options: ISelectOption[]) => void;
   onSelectRunQueryChange: (query: string) => void;
   onSelectAdvancedQueryChange: (query: string) => void;
   toggleSelectAdvancedMode: () => void;
@@ -111,7 +132,7 @@ export interface IMetricProps extends Partial<RouteChildrenProps> {
   onSortChange?: (field: string, value?: 'asc' | 'desc' | 'none') => void;
   onMetricVisibilityChange: (metricKeys: string[]) => void;
   onColumnsOrderChange: (order: any) => void;
-  onColumnsVisibilityChange: (hiddenColumns: string[]) => void;
+  onColumnsVisibilityChange: (hiddenColumns: string[] | string) => void;
   onTableDiffShow: () => void;
   onTableResizeModeChange: (mode: ResizeModeEnum) => void;
   updateColumnsWidths: (key: string, width: number, isReset: boolean) => void;
@@ -123,6 +144,9 @@ export interface IMetricProps extends Partial<RouteChildrenProps> {
     delay?: number;
     enabled?: boolean;
   }) => void;
+  onRowSelect: any;
+  archiveRuns: (ids: string[], archived: boolean) => void;
+  deleteRuns: (ids: string[]) => void;
 }
 
 export interface IOnSmoothingChange {

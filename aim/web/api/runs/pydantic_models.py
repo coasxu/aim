@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from typing import Dict, List, Tuple, Optional
+from typing import Dict, List, Tuple, Optional, Union
 from uuid import UUID
 
 
@@ -13,22 +13,22 @@ class EncodedNumpyArray(BaseModel):
 
 class TraceBase(BaseModel):
     context: dict
-    metric_name: str
+    name: str
 
 
 class TraceOverview(TraceBase):
     last_value: float = 0.1
 
 
-RunTracesApiOut = List[TraceOverview]
-
-
 class TraceBaseView(TraceBase):
-    values: List[float]
     iters: List[int]
 
 
-RunTracesBatchApiOut = List[TraceBaseView]
+class MetricsBaseView(TraceBaseView):
+    values: List[float]
+
+
+RunMetricsBatchApiOut = List[MetricsBaseView]
 
 
 class TraceAlignedView(TraceBase):
@@ -52,16 +52,20 @@ class PropsView(BaseModel):
         id: UUID
         name: str
         color: str
+        description: str
 
     class Experiment(BaseModel):
         id: UUID
         name: str
 
     name: Optional[str] = None
+    description: Optional[str] = None
     experiment: Optional[Experiment] = None
     tags: Optional[List[Tag]] = []
     creation_time: float
     end_time: Optional[float]
+    archived: bool
+    active: bool
 
 
 class MetricSearchRunView(BaseModel):
@@ -72,7 +76,7 @@ class MetricSearchRunView(BaseModel):
 
 class RunInfoOut(BaseModel):
     params: dict
-    traces: List[TraceOverview]
+    traces: Dict[str, List[TraceOverview]]
     props: PropsView
 
 
@@ -91,7 +95,7 @@ RunSearchApiOut = Dict[str, RunSearchRunView]
 # request models
 class AlignedTraceIn(BaseModel):
     context: dict
-    metric_name: str
+    name: str
     slice: Tuple[int, int, int]
 
 
@@ -110,14 +114,18 @@ RunTracesBatchApiIn = List[TraceBase]
 
 # structured run models
 class StructuredRunUpdateIn(BaseModel):
-    name: Optional[str] = ''
-    description: Optional[str] = ''
+    name: Optional[str] = None
+    description: Optional[str] = None
     archived: Optional[bool] = None
-    experiment: Optional[str] = ''
+    experiment: Optional[str] = None
 
 
 class StructuredRunUpdateOut(BaseModel):
     id: str
+    status: str = 'OK'
+
+
+class StructuredRunsArchivedOut(BaseModel):
     status: str = 'OK'
 
 
@@ -143,4 +151,75 @@ class QuerySyntaxErrorOut(BaseModel):
         statement: str
         line: int
         offset: int
+
     detail: SE
+
+
+URIBatchIn = List[str]
+RunsBatchIn = List[str]
+
+
+# Custom object Models "Fully Generic"
+
+class BaseRangeInfo(BaseModel):
+    record_range_used: Tuple[int, int]
+    record_range_total: Tuple[int, int]
+    index_range_used: Optional[Tuple[int, int]]
+    index_range_total: Optional[Tuple[int, int]]
+
+
+class ObjectSequenceBaseView(BaseRangeInfo, TraceBaseView):
+    values: list
+
+
+class ObjectSequenceFullView(TraceBaseView):
+    values: list
+    iters: List[int]
+    epochs: List[int]
+    timestamps: List[float]
+
+
+class ObjectSearchRunView(BaseModel):
+    params: dict
+    traces: List[ObjectSequenceFullView]
+    ranges: BaseRangeInfo
+    props: PropsView
+
+
+# Custom objects
+class ImageInfo(BaseModel):
+    caption: str
+    width: int
+    height: int
+    blob_uri: str
+    index: int
+
+
+class TextInfo(BaseModel):
+    data: str
+    index: int
+
+
+class AudioInfo(BaseModel):
+    caption: str
+    blob_uri: str
+    index: int
+
+
+class DistributionInfo(BaseModel):
+    data: EncodedNumpyArray
+    bin_count: int
+    range: Tuple[Union[int, float], Union[int, float]]
+
+
+class FigureInfo(BaseModel):
+    blob_uri: str
+
+
+class NoteIn(BaseModel):
+    content: str
+
+
+ImageList = List[ImageInfo]
+TextList = List[TextInfo]
+AudioList = List[AudioInfo]

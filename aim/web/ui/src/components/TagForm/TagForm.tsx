@@ -7,10 +7,13 @@ import { makeStyles } from '@material-ui/core';
 import { Button, TextField } from '@material-ui/core';
 
 import { Badge, Text } from 'components/kit';
+import ErrorBoundary from 'components/ErrorBoundary/ErrorBoundary';
 
 import COLORS from 'config/colors/colors';
+import { ANALYTICS_EVENT_KEYS } from 'config/analytics/analyticsKeysMap';
 
 import tagsAppModel from 'services/models/tags/tagsAppModel';
+import { trackEvent } from 'services/analytics';
 
 import { ITagFormProps } from 'types/components/TagForm/TagForm';
 
@@ -115,6 +118,8 @@ function TagForm({
   );
 
   function onCreateButtonClick() {
+    trackEvent(ANALYTICS_EVENT_KEYS.tags.create);
+
     submitForm().then(() =>
       validateForm(values).then((errors) => {
         if (isEmpty(errors)) {
@@ -163,68 +168,70 @@ function TagForm({
   }
 
   return (
-    <div className='TagForm'>
-      <div className='TagForm__tagFormContainer'>
-        <Text component='p' tint={60}>
-          Name
-        </Text>
-        <TextField
-          placeholder='Name'
-          variant='outlined'
-          className='TagForm__tagFormContainer__TextField TextField__OutLined__Medium'
-          onChange={(e) => onChange(e, 'name')}
-          value={name}
-          size='small'
-          error={!!(touched.name && errors.name)}
-          helperText={touched.name && errors.name}
-        />
-        <Text component='p' tint={60}>
-          Comment
-        </Text>
-        <TextField
-          placeholder='Comment'
-          variant='outlined'
-          onChange={(e) => onChange(e, 'comment')}
-          className='TagForm__tagFormContainer__TextField TextField__TextArea__OutLined__Small'
-          multiline
-          value={comment}
-          error={!!(touched.comment && errors.comment)}
-          helperText={touched.comment && errors.comment}
-        />
-        <div className='TagForm__tagFormContainer__colorContainer'>
-          <Text component='p' tint={50}>
-            Colors
+    <ErrorBoundary>
+      <div className='TagForm'>
+        <div className='TagForm__tagFormContainer'>
+          <Text component='p' tint={60}>
+            Name
           </Text>
-          <div className='TagForm__tagFormContainer__colorContainer__colorBox'>
-            {colors}
+          <TextField
+            placeholder='Name'
+            variant='outlined'
+            className='TagForm__tagFormContainer__TextField TextField__OutLined__Medium'
+            onChange={(e) => onChange(e, 'name')}
+            value={name}
+            size='small'
+            error={!!(touched.name && errors.name)}
+            helperText={touched.name && errors.name}
+          />
+          <Text component='p' tint={60}>
+            Comment
+          </Text>
+          <TextField
+            placeholder='Comment'
+            variant='outlined'
+            onChange={(e) => onChange(e, 'comment')}
+            className='TagForm__tagFormContainer__TextField TextField__TextArea__OutLined__Small'
+            multiline
+            value={comment}
+            error={!!(touched.comment && errors.comment)}
+            helperText={touched.comment && errors.comment}
+          />
+          <div className='TagForm__tagFormContainer__colorContainer'>
+            <Text component='p' tint={50}>
+              Colors
+            </Text>
+            <div className='TagForm__tagFormContainer__colorContainer__colorBox'>
+              {colors}
+            </div>
+          </div>
+          <div className='TagForm__tagFormContainer__previewContainer'>
+            <Text component='p' tint={30}>
+              Preview
+            </Text>
+            <div className='TagForm__tagFormContainer__previewContainer__tagPreviewBox'>
+              <Badge label={name || 'Tag Preview'} color={color} />
+            </div>
           </div>
         </div>
-        <div className='TagForm__tagFormContainer__previewContainer'>
-          <Text component='p' tint={30}>
-            Preview
-          </Text>
-          <div className='TagForm__tagFormContainer__previewContainer__tagPreviewBox'>
-            <Badge label={name || 'Tag Preview'} color={color} />
-          </div>
+        <div className='TagForm__tagFormFooterContainer'>
+          <Button
+            onClick={editMode ? onResetButtonClick : onCloseModal}
+            className='TagForm__tagFormFooterContainer__cancelButton'
+            color='secondary'
+          >
+            {editMode ? 'Reset' : 'Cancel'}
+          </Button>
+          <Button
+            onClick={editMode ? onSaveButtonClick : onCreateButtonClick}
+            variant='contained'
+            color='primary'
+          >
+            {editMode ? 'Save' : 'Create'}
+          </Button>
         </div>
       </div>
-      <div className='TagForm__tagFormFooterContainer'>
-        <Button
-          onClick={editMode ? onResetButtonClick : onCloseModal}
-          className='TagForm__tagFormFooterContainer__cancelButton'
-          color='secondary'
-        >
-          {editMode ? 'Reset' : 'Cancel'}
-        </Button>
-        <Button
-          onClick={editMode ? onSaveButtonClick : onCreateButtonClick}
-          variant='contained'
-          color='primary'
-        >
-          {editMode ? 'Save' : 'Create'}
-        </Button>
-      </div>
-    </div>
+    </ErrorBoundary>
   );
 }
 

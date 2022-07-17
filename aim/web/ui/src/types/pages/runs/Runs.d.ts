@@ -1,54 +1,45 @@
 import React from 'react';
 
+import { RequestStatusEnum } from 'config/enums/requestStatusEnum';
+
+import { IColumnsOrder } from 'types/services/models/explorer/createAppModel';
 import {
   IMetricTrace,
   IParamTrace,
   IRun,
 } from 'types/services/models/metrics/runModel';
-export interface IRunDetailParamsTabProps {
-  runParams: { [key: string]: any };
-  isRunInfoLoading: boolean;
-}
+
+import { ITagProps } from '../tags/Tags';
 
 export interface IRunsProps {
   tableData: IRun<IMetricTrace | IParamTrace>[];
 }
-export interface IRunDetailMetricsAndSystemTabProps {
-  runHash: string;
-  runTraces: any;
-  runBatch: any;
-  isSystem?: boolean;
-  isRunBatchLoading: boolean;
-}
-export interface IRunDetailSettingsTabProps {
-  runHash: string;
-  isArchived: boolean;
-}
-
-export interface IRunBatch {
-  context: { [key: string]: string };
-  iters: number[];
-  metric_name: string;
-  values: number[];
-}
 
 export interface IRunsTableProps {
-  columnsOrder: any;
+  columnsOrder: IColumnsOrder;
   tableRef: React.RefObject<any>;
   runsList: ITagProps[];
-  isRunsDataLoading: boolean;
   isInfiniteLoading: boolean;
   hiddenColumns: string[];
+  hideSystemMetrics: boolean;
   columns: any;
   tableRowHeight: number;
+  requestStatus: RequestStatusEnum;
+  sameValueColumns: string[] | [];
   onExportTableData: () => void;
   onManageColumns: () => void;
-  onColumnsVisibilityChange: (hiddenColumns: string[]) => void;
+  onColumnsVisibilityChange: (hiddenColumns: string[] | string) => void;
   onTableDiffShow: () => void;
   onRowHeightChange: () => void;
   getLastRunsData: (row: any) => void;
   isLatest?: boolean;
   data: any;
   columnsWidths: { [key: string]: number };
+  columnsColorScales: { [key: string]: boolean };
   updateColumnsWidths: (key: string, width: number, isReset: boolean) => void;
+  selectedRows: { [key: string]: any };
+  onRowSelect: (key: string) => any;
+  archiveRuns: (ids: string[], archived: boolean) => void;
+  deleteRuns: (ids: string[]) => void;
+  onToggleColumnsColorScales: (colKey: string) => void;
 }

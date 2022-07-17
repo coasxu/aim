@@ -1,0 +1,10 @@
+-r ../requirements.txt
+torch
+tensorflow
+hub
+requests
+pandas
+pytest
+flake8
+parameterized==0.8.1
+pytest-cov==2.12.1

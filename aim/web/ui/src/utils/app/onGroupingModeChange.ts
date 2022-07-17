@@ -1,7 +1,9 @@
+import { ANALYTICS_EVENT_KEYS } from 'config/analytics/analyticsKeysMap';
+import { GroupNameEnum } from 'config/grouping/GroupingPopovers';
+
 import * as analytics from 'services/analytics';
 
 import { IModel, State } from 'types/services/models/model';
-import { GroupNameType } from 'types/services/models/metrics/metricsAppModel';
 import { IAppModelConfig } from 'types/services/models/explorer/createAppModel';
 
 import resetChartZoom from './resetChartZoom';
@@ -14,7 +16,7 @@ export default function onGroupingModeChange<M extends State>({
   updateModelData,
   setAggregationEnabled,
 }: {
-  groupName: GroupNameType;
+  groupName: GroupNameEnum;
   value: boolean;
   model: IModel<M>;
   appName: string;
@@ -38,9 +40,10 @@ export default function onGroupingModeChange<M extends State>({
     }
     updateModelData(configData, true);
   }
-  analytics.trackEvent(
-    `[MetricsExplorer] ${
-      value ? 'Disable' : 'Enable'
-    } grouping by ${groupName} reverse mode`,
-  );
+  if (value) {
+    analytics.trackEvent(
+      // @ts-ignore
+      ANALYTICS_EVENT_KEYS[appName].groupings[groupName].modeChange,
+    );
+  }
 }
